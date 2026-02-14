@@ -1,0 +1,24 @@
+# azsafe - Allowed Azure CLI verbs
+# One verb per line, comments start with #
+# Both azsafe.ps1 and SKILL.md read from this file
+
+# Read-only verbs (map to HTTP GET operations)
+list
+show
+describe
+get
+exists
+export
+download
+check
+validate
+wait
+browse
+find
+preview
+query
+
+# Special commands (local operations, don't modify Azure resources)
+login
+account
+version
