@@ -59,7 +59,8 @@ SELECT t.id, t.title, f.layer, t.status, f.pr_url
 FROM todos t JOIN fleet_tasks f ON t.id = f.id
 ORDER BY f.layer, t.id;
 
--- What's ready to work on? (pending, all deps done)
+-- What's ready to work on? (pending, all deps done/pr_created/consolidated)
+-- Note: for DEFERRED tasks, use the deferred-unblock query below instead
 SELECT t.id, t.title, f.layer FROM todos t
 JOIN fleet_tasks f ON t.id = f.id
 WHERE t.status = 'pending'
@@ -120,6 +121,39 @@ On session resume (or after context compaction):
 2. Run `git worktree list` to validate worktrees on disk
 3. For tasks in `implementing` — check `git log` in the worktree for commits
 4. Present summary and resume from the first non-terminal task
+
+## Unblocking Deferred Tasks
+
+After a layer completes and PRs are merging, check for deferred tasks that are now unblocked:
+
+```powershell
+# Fetch latest main
+git fetch origin main
+
+# For each deferred task, check if all antecedent branches are merged to main
+git branch --merged origin/main | Select-String $antecedentBranchName
+```
+
+```sql
+-- Find deferred tasks whose antecedents are all done (PR merged)
+SELECT t.id, t.title FROM todos t
+JOIN fleet_tasks f ON t.id = f.id
+WHERE t.status = 'deferred'
+AND NOT EXISTS (
+    SELECT 1 FROM todo_deps td
+    JOIN todos dep ON td.depends_on = dep.id
+    WHERE td.todo_id = t.id AND dep.status != 'done'
+);
+
+-- Transition unblocked deferred tasks back to pending
+UPDATE todos SET status = 'pending'
+WHERE id IN (...);  -- IDs from query above
+```
+
+The orchestrator should check for unblocked deferred tasks:
+1. After each layer completes
+2. When the user resumes a session (PRs may have merged while away)
+3. When the user explicitly says "check for merges"
 
 ```
 📋 Resuming Fleet Pipeline: "Unify Integration Test Run Modes"

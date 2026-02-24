@@ -42,7 +42,7 @@ graph TD
     classDef deferred fill:#fff3e0,stroke:#ff9800,stroke-width:2px
 ```
 
-> **Task C** depends on both A and B. If A and B are in the same layer, C goes to the next layer and branches from either (user chooses). If A and B are in different layers, C is deferred until both are merged to main.
+> **Task C** depends on both A and B. If A and B are in the same layer, C is still deferred — it needs both branches' changes, and branching from only one would miss the other. Wait for both PRs to merge to main, then branch C from the updated main.
 
 ## Step 0.4: Output
 

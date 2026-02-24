@@ -146,7 +146,8 @@ For each completed task, launch 3 `code-review` agents in background (one per mo
 ```
 task(agent_type: "code-review", mode: "background", model: "gpt-5.3-codex", prompt: """
 Review changes in: C:\_SRC\ZTS.worktrees\manifest-cleanup
-Run: git diff main
+Run: git diff <base_branch>
+(base_branch is stored in fleet_tasks.base_branch — use origin/main for Layer 0, parent task's branch for Layer 1+)
 Review for correctness, test coverage, edge cases, style.
 Rate issues as CRITICAL / IMPORTANT / MINOR.
 """)
@@ -306,6 +307,13 @@ Each PR is created **as soon as** the user approves the worktree — no batching
 3. **Link work items** to the PR
 4. **Set reviewers** (suggest based on code owners or user preference)
 5. **Update SQL**: `status → pr_created`, record `pr_url`
+
+**PR target branch:** Always `main`. For Layer 1+ tasks that branched from a parent task, **delay PR creation until the parent's PR has merged to main**. Start implementation immediately (to keep the pipeline flowing), but hold the PR. Once the parent merges:
+1. Rebase the child branch onto updated `origin/main`
+2. Build + test to confirm
+3. Then create PR targeting `main`
+
+This keeps PR diffs clean — each PR shows only its own task's changes.
 
 ```powershell
 # Push

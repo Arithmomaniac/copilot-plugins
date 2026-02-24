@@ -12,9 +12,10 @@ During manual review, the user may decide to **fold** smaller tasks into larger 
 ## How to Consolidate
 
 ```powershell
-# 1. Cherry-pick commits from small worktree onto large worktree
+# 1. Cherry-pick ALL commits from small worktree onto large worktree
 cd $largeWorktreePath
-git cherry-pick <commit-hash-from-small-worktree>
+# Get the range of commits unique to the small branch (after its base)
+git cherry-pick $baseBranch..$smallBranchName
 
 # 2. Resolve any conflicts, build, and test
 dotnet build && dotnet test
@@ -39,7 +40,11 @@ When a task is consolidated:
 - The consolidation target's PR description should mention the folded work
 
 ```sql
--- Redirect dependencies from consolidated task to its target
+-- Redirect dependencies from consolidated task to its target (dedup-safe)
+DELETE FROM todo_deps
+WHERE depends_on = 'small-task'
+AND todo_id IN (SELECT todo_id FROM todo_deps WHERE depends_on = 'large-task');
+
 UPDATE todo_deps
 SET depends_on = 'large-task'
 WHERE depends_on = 'small-task';
