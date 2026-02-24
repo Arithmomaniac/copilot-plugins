@@ -1,11 +1,13 @@
 ﻿<#
 .SYNOPSIS
-    Installs agent skills by creating junctions from the repo's skills directory
-    into $env:USERPROFILE\.claude\skills. Idempotent - safe to run repeatedly.
+    Installs agent skills and agents by creating junctions/symlinks from the repo
+    into $env:USERPROFILE\.claude\skills and $env:USERPROFILE\.claude\agents.
+    Idempotent - safe to run repeatedly.
 
 .DESCRIPTION
-    - Creates junctions for each skill subdirectory
-    - Cleans stale junctions that pointed into this repo but whose source is gone
+    - Creates junctions for each skill subdirectory → ~/.claude/skills/
+    - Creates symlinks for .agent.md files found in agents/ subdirs → ~/.claude/agents/
+    - Cleans stale junctions/symlinks that pointed into this repo but whose source is gone
     - Installs post-checkout and post-merge git hooks to re-run this script automatically
 #>
 [CmdletBinding()]
@@ -15,9 +17,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-$SkillsSource = Join-Path $PSScriptRoot 'skills'
-$TargetDir    = Join-Path $env:USERPROFILE '.claude\skills'
-$GitHooksDir  = Join-Path $PSScriptRoot '.git\hooks'
+$SkillsSource  = Join-Path $PSScriptRoot 'skills'
+$AgentsSource  = Join-Path $PSScriptRoot 'agents'
+$TargetDir     = Join-Path $env:USERPROFILE '.claude\skills'
+$AgentsDir     = Join-Path $env:USERPROFILE '.claude\agents'
+$GitHooksDir   = Join-Path $PSScriptRoot '.git\hooks'
 $ScriptPath   = $MyInvocation.MyCommand.Path
 
 if (-not (Test-Path $SkillsSource)) {
@@ -86,6 +90,62 @@ foreach ($item in $allItems) {
         if (-not (Test-Path $target)) {
             $item.Delete()
             Write-Host "[-] Removed stale junction: $($item.Name) -> $target"
+        }
+    }
+}
+
+# ── Install agent files (.agent.md) ────────────────────────────────────────────
+# Create directory junctions for each agent group (like skills), so .agent.md
+# files are discovered from ~/.claude/agents/<group-name>/<name>.agent.md
+if (Test-Path $AgentsSource) {
+    if (-not (Test-Path $AgentsDir)) {
+        New-Item -Path $AgentsDir -ItemType Directory -Force | Out-Null
+        Write-Host "[+] Created agents directory: $AgentsDir"
+    }
+
+    $agentGroups = Get-ChildItem -Path $AgentsSource -Directory
+    foreach ($group in $agentGroups) {
+        $junctionPath = Join-Path $AgentsDir $group.Name
+        $expectedTarget = $group.FullName
+
+        if (Test-Path $junctionPath) {
+            $existing = Get-Item $junctionPath -Force
+            if ($existing.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                $currentTarget = $existing.Target
+                if ($currentTarget -is [array]) { $currentTarget = $currentTarget[0] }
+
+                if ($currentTarget -eq $expectedTarget) {
+                    Write-Host "[=] Skipped agent group (already correct): $($group.Name)"
+                    continue
+                } else {
+                    $existing.Delete()
+                    Write-Host "[-] Removed stale agent junction: $($group.Name) -> $currentTarget"
+                }
+            } else {
+                Write-Warning "Agent path '$junctionPath' exists but is not a junction. Skipping."
+                continue
+            }
+        }
+
+        New-Item -Path $junctionPath -ItemType Junction -Target $expectedTarget | Out-Null
+        Write-Host "[+] Created agent junction: $($group.Name) -> $expectedTarget"
+    }
+
+    # Clean stale agent junctions pointing into this repo
+    $normalizedAgentsSource = $AgentsSource.TrimEnd('\') + '\'
+    $allAgents = Get-ChildItem -Path $AgentsDir -Force -ErrorAction SilentlyContinue
+    foreach ($item in $allAgents) {
+        if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+
+        $target = $item.Target
+        if ($target -is [array]) { $target = $target[0] }
+        if (-not $target) { continue }
+
+        if ($target.StartsWith($normalizedAgentsSource, [StringComparison]::OrdinalIgnoreCase)) {
+            if (-not (Test-Path $target)) {
+                $item.Delete()
+                Write-Host "[-] Removed stale agent junction: $($item.Name) -> $target"
+            }
         }
     }
 }

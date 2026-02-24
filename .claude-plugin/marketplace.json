@@ -57,7 +57,8 @@
       "version": "1.0.0",
       "category": "developer-tools",
       "keywords": ["spec", "design", "workflow", "review", "planning"],
-      "skills": ["./skills/openspec-workflow"]
+      "skills": ["./skills/openspec-workflow"],
+      "agents": ["./agents/openspec-workflow"]
     },
     {
       "name": "skill-writer",
@@ -88,6 +89,17 @@
       "category": "developer-tools",
       "keywords": ["azure", "cli", "safety", "read-only", "proxy"],
       "skills": ["./skills/azsafe"]
+    },
+    {
+      "name": "fleet-orchestrated-pipeline",
+      "description": "Decompose large work into a DAG and execute across parallel worktrees with fleet agents, multi-model code review, auto-applied fixes, and streaming manual review. Integrates with plan mode — plan first, then switch to fleet orchestrator. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to split into parallel PR-sized tasks.",
+      "source": "./",
+      "strict": false,
+      "version": "1.0.0",
+      "category": "developer-tools",
+      "keywords": ["fleet", "worktree", "parallel", "dag", "pipeline", "code-review", "swarm"],
+      "skills": ["./skills/fleet-orchestrated-pipeline"],
+      "agents": ["./agents/fleet-orchestrated-pipeline"]
     }
   ]
 }
