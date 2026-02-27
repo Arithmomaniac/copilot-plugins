@@ -84,13 +84,15 @@ SELECT task_id, severity, finding FROM fleet_reviews WHERE status = 'flagged';
 | `pending` | Waiting for dependencies or layer |
 | `worktree_created` | Worktree ready, not yet implementing |
 | `implementing` | Fleet agent running |
-| `review` | Code review in progress |
-| `auto_apply` | Auto-applying review findings |
-| `manual_review` | Ready for user review |
+| `implemented` | Agent completed, awaiting review |
+| `reviewed` | Reviews completed, awaiting auto-apply |
+| `auto_applied` | Auto-apply completed, awaiting manual review |
+| `approved` | User approved, awaiting PR creation |
 | `pr_created` | PR created, awaiting merge |
 | `done` | PR merged |
 | `consolidated` | Folded into another task |
 | `deferred` | Can't process yet (multi-antecedent) |
+| `failed` | Agent failed after retries |
 
 ## Status Flow
 
@@ -100,27 +102,72 @@ stateDiagram-v2
     pending --> deferred : multi-antecedent
     pending --> worktree_created : create worktree
     worktree_created --> implementing : fleet agent starts
-    implementing --> review : implementation done
-    review --> auto_apply : findings to apply
-    review --> manual_review : no auto-apply needed
-    auto_apply --> manual_review : fixes applied
-    manual_review --> pr_created : user approves
-    manual_review --> implementing : user requests rework
-    manual_review --> consolidated : folded into another task
+    implementing --> implemented : agent completes
+    implementing --> failed : agent fails after retries
+    implemented --> reviewed : reviews complete
+    reviewed --> auto_applied : auto-apply complete
+    reviewed --> approved : no auto-apply needed, user approves
+    auto_applied --> approved : user approves
+    auto_applied --> implementing : user requests rework
+    approved --> pr_created : PR created
+    approved --> consolidated : folded into another task
     pr_created --> done : PR merged
     deferred --> pending : antecedents merged to main
     consolidated --> [*]
     done --> [*]
+    failed --> [*]
 ```
+
+## Layer Stage Tracking
+
+Use `fleet_pipeline` to track which stage the current layer is in. This enables clean resume after context loss.
+
+```sql
+-- Track layer-level progress
+INSERT OR REPLACE INTO fleet_pipeline (key, value) VALUES ('layer_stage', 'implementing');
+-- Valid values: worktrees_created, implementing, implemented, reviewing,
+--              reviewed, auto_applying, auto_applied, manual_reviewing, prs_created
+```
+
+On resume, read `layer_stage` to know exactly where to pick up — no need to infer from per-task statuses.
 
 ## Resuming
 
 On session resume (or after context compaction):
 
-1. Query `fleet_tasks` to rebuild the full picture
-2. Run `git worktree list` to validate worktrees on disk
-3. For tasks in `implementing` — check `git log` in the worktree for commits
-4. Present summary and resume from the first non-terminal task
+1. Query `fleet_pipeline` for `current_layer` and `layer_stage` to know exactly where to pick up
+2. Query `fleet_tasks JOIN todos` to rebuild the full picture
+3. Run `git worktree list` to validate worktrees on disk
+4. For tasks in `implementing` — check `git log` in the worktree for commits
+5. Present summary and resume from the current `layer_stage`
+
+```
+📋 Resuming Fleet Pipeline: "Unify Integration Test Run Modes"
+   Layer: 0 of 2 — Stage: auto_applied (ready for manual review)
+
+   ✅ t0-manifest — implemented, reviewed, auto-applied
+   ✅ t2-arg — implemented, reviewed, auto-applied
+   ❌ t5-servicebus — failed (Opus unavailable)
+   ⏳ t3-data-acq — Pending (Layer 1)
+   ⏳ t6-arn-handler — Pending (Layer 1)
+   ⚠️  t7-durabletask — Deferred (multi-antecedent)
+
+   Ready for manual review of t0-manifest?
+```
+
+## Review Files
+
+Detailed review text is saved to the session workspace for reference:
+
+```
+files/reviews/
+├── layer-0/
+│   ├── t0-manifest-synthesis.md
+│   ├── t2-arg-synthesis.md
+│   └── ...
+└── layer-1/
+    └── ...
+```
 
 ## Unblocking Deferred Tasks
 
@@ -155,30 +202,18 @@ The orchestrator should check for unblocked deferred tasks:
 2. When the user resumes a session (PRs may have merged while away)
 3. When the user explicitly says "check for merges"
 
-```
-📋 Resuming Fleet Pipeline: "Unify Integration Test Run Modes"
-   Layer: 0 of 2
+## Resilience
 
-   ✅ t0-manifest — PR created (#14809024)
-   ✅ t2-arg — PR created (#14809063)  
-   🔍 t5-servicebus — Awaiting manual review  ← YOU ARE HERE
-   ⏳ t3-data-acq — Pending (Layer 1)
-   ⏳ t6-arn-handler — Pending (Layer 1)
-   ⚠️  t7-durabletask — Deferred (multi-antecedent)
+### Model Failures
+- If the primary implementation model (Opus) is unavailable, fall back to Sonnet 4.6
+- If a review model times out, proceed with available reviews (2-of-3 is fine, 1-of-3 with a warning)
+- Record model failures in `fleet_reviews` with `status = 'timeout'`
 
-   Continue with manual review of t5-servicebus?
-```
+### Agent Failures
+- If an implementation agent fails after retries, mark the task `failed` and continue with the remaining tasks
+- Failed tasks don't block the layer — the layer proceeds with successful tasks through review/auto-apply/manual review
+- Failed tasks can be retried manually (`UPDATE todos SET status = 'pending' WHERE id = 'failed-task'`)
 
-## Review Files
-
-Detailed review text is saved to the session workspace for reference:
-
-```
-files/reviews/
-├── layer-0/
-│   ├── t0-manifest-synthesis.md
-│   ├── t2-arg-synthesis.md
-│   └── ...
-└── layer-1/
-    └── ...
-```
+### Partial Layers
+- A layer is complete when all tasks are in a terminal state (`pr_created`, `done`, `consolidated`, or `failed`)
+- A layer with some `failed` tasks still advances to the next layer (failed tasks are independent units)

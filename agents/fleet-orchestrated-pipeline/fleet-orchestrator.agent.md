@@ -40,7 +40,27 @@ You are a **manager of software engineers**, not a coder. You:
 
 When launching implementation agents, always set `model: "claude-opus-4.6"`. When launching review agents, use the three different models above for diversity.
 
-The **fleet-orchestrated-pipeline** skill handles all the detailed procedures — your job is to sequence the phases and keep the user informed at each checkpoint.
+## Shell & Agent Execution Model
+
+The Copilot CLI's shell tool defaults to a 10-second timeout and sub-agents default to sync mode. These defaults are wrong for fleet orchestration. Follow these rules:
+
+### Agent execution
+- **Implementation agents**: `task(mode: "background")` — always background. Poll with `read_agent(wait: true, timeout: 300)`. Loop if still running.
+- **Review agents**: `task(mode: "background")` — always background. Poll with `read_agent(wait: true, timeout: 120)`.
+- **Never launch a single background agent** — use sync for single agents, background only when launching multiple in parallel.
+
+### Shell commands
+- **Git operations** (push, worktree add, merge): `mode: "sync"`, `initial_wait: 30`
+- **Build/test verification** (dotnet build, dotnet test): `mode: "sync"`, `initial_wait: 120`
+- **`az`/`azsafe` commands**: `mode: "sync"`, `initial_wait: 30` minimum — never use the default 10s
+- **Long-running scripts** (polling, monitoring): `mode: "async"` with explicit `read_powershell` polling
+
+### Timeout resilience
+- If `read_agent` returns `status: "running"` after timeout, retry — do NOT assume failure
+- If an implementation agent hasn't completed after 15 minutes (3 × 300s timeouts), mark as `failed`
+- If a review agent hasn't completed after 4 minutes (2 × 120s), proceed without it (2-of-3 is fine)
+
+The **fleet-orchestrated-pipeline** skill handles all the detailed procedures— your job is to sequence the phases and keep the user informed at each checkpoint.
 
 ## Phase 0: Decomposition
 
@@ -63,18 +83,18 @@ Process layers in topological order. For each layer:
 3. Mark completed, check if deferred tasks are now unblocked
 4. Repeat
 
-## Phase 2: Inner Loop (Streaming Pipeline)
+## Phase 2: Inner Loop (Per-Layer Batch Pipeline)
 
-For each layer's ready tasks, execute the streaming pipeline per the skill's inner-loop reference:
+For each layer's ready tasks, execute **6 sequential batch stages** with barriers between them. Within each stage, tasks run in parallel. Per the skill's inner-loop reference:
 
 1. **Create worktrees** — All at once in `../<repo>.worktrees/<swarm-slug>/t<N>-<slug>`, branches named `<prefix>/<user>/<swarm>/t<N>-<slug>`
-2. **Fleet implementation** — Launch one `general-purpose` background agent per worktree using the `task` tool with `model: "claude-opus-4.6"`
-3. **Multi-model review** — As each finishes, launch 3 reviewer agents (Sonnet 4.6, Codex 5.3, Gemini 3 Pro) in background
-4. **Auto-apply findings** — Synthesize reviews, auto-apply unambiguous fixes, flag the rest
-5. **Manual review** — Present one task at a time; user reviews while background work continues
-6. **Create PR** — On approval, create PR and move to next ready task
+2. **Fleet implementation** — Launch one `general-purpose` background agent per worktree using `model: "claude-opus-4.6"`. Explicitly flag independent sub-tasks within each agent's prompt for intra-agent parallelism. **Wait for ALL agents to complete** (use `read_agent wait: true` or `list_agents` loop). If a model is unavailable, fall back to Sonnet 4.6. If an agent fails after retries, mark it `failed` and continue.
+3. **Tri-review** — For each implemented task, launch 3 `code-review` agents (Sonnet 4.6, Codex 5.3, Gemini 3 Pro). All 3×N reviews run in parallel. **Wait for ALL to complete.** If a review model times out, proceed with available results (2-of-3 is fine). Synthesize findings per task.
+4. **Auto-apply** — For each task with auto-applicable findings, launch one `general-purpose` agent per task. All run in parallel (separate worktrees). **Wait for ALL.** Apply unambiguous fixes, flag the rest.
+5. **Manual review** — Present one task at a time; user reviews refined code + only flagged findings. No background work running at this point.
+6. **Create PR** — On approval, push + create PR and move to next task.
 
-**Checkpoint after each manual review:** Wait for user approval before creating PR. Present the next ready task immediately.
+**Checkpoint after each manual review:** Wait for user approval before creating PR. Present the next task immediately after.
 
 ## State Tracking
 

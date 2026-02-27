@@ -5,7 +5,7 @@ description: 'Decompose large work into a DAG and execute across parallel worktr
 
 # Fleet Orchestrated Pipeline
 
-Orchestrate large bodies of work by decomposing them into a DAG, then executing tasks in parallel across git worktrees using fleet agents, multi-model code review, automatic fix application, and streaming manual review with PR creation.
+Orchestrate large bodies of work by decomposing them into a DAG, then executing tasks in parallel across git worktrees using fleet agents, multi-model code review, automatic fix application, and per-layer batch execution with PR creation.
 
 ## Reference Files
 
@@ -45,15 +45,17 @@ Orchestrate large bodies of work by decomposing them into a DAG, then executing 
 Process layers in order. For each layer, run the Inner Loop on all ready tasks.
 After a layer completes, check if deferred tasks are now unblocked.
 
-### Phase 2: Inner Loop (Streaming Pipeline)
-For each layer's tasks, all stages pipeline independently — no stage waits for all tasks:
+### Phase 2: Inner Loop (Per-Layer Batch Pipeline)
+For each layer, tasks move through **6 sequential batch stages** with barriers between stages. Within each stage, tasks execute in parallel:
 
 1. **Create worktrees** — all at once, in `../<repo>.worktrees/<swarm-slug>/t<N>-<slug>`
-2. **Fleet implementation** — one `general-purpose` background agent per worktree, all parallel
-3. **Multi-model code review** — as each agent finishes, launch 3 review models immediately
-4. **Auto-apply findings** — sanity-check each finding; auto-apply if unambiguous and verifiable
-5. **Manual review** — present refined code one task at a time; user reviews while background work continues
-6. **Create PR** — immediately on approval, then present next ready task
+2. **Fleet implementation** — one `general-purpose` background agent per worktree, all parallel. **Wait for ALL to complete.**
+3. **Multi-model code review** — for each implemented task, launch 3 review models. All 3×N reviews run in parallel. **Wait for ALL to complete.**
+4. **Auto-apply findings** — one agent per task applies unambiguous fixes, all in parallel (separate worktrees). **Wait for ALL to complete.**
+5. **Manual review** — present tasks one at a time; user reviews refined code with only flagged findings
+6. **Create PR** — on approval, push + create PR
+
+Each stage completes fully before the next begins. Agents within a stage fan out internally (parallel tool calls for independent sub-tasks within a worktree).
 
 ## Naming Conventions
 
@@ -89,9 +91,11 @@ Severity does NOT gate auto-apply. A minor whitespace fix and a critical logic b
 
 - **Worktrees** (not branch switching) — parallel agents need separate working directories
 - **Layer-by-layer** — later tasks branch FROM earlier tasks' branches, getting their code changes
+- **Batch stages with barriers** — each stage (implement, review, auto-apply) completes fully before the next begins; eliminates polling, streaming, and background SQL issues
+- **Intra-agent parallelism** — agents with multiple independent sub-tasks parallelize internally via parallel tool calls
 - **Defer multi-antecedent** — wait for PRs to merge to main rather than risk merge conflicts
 - **3-model review** — different models catch different issue classes; consensus = high confidence
-- **Streaming pipeline** — manual review is the bottleneck; everything before it should pipeline
+- **Resilience** — model timeouts and failures are handled gracefully (2-of-3 reviews is fine, failed tasks don't block the layer)
 
 ## Integration Points
 

@@ -1,44 +1,31 @@
-# Inner Loop: Per-Layer Streaming Pipeline
+# Inner Loop: Per-Layer Batch Pipeline
 
-This is the core execution pipeline. For a batch of parallelizable tasks in a single layer, all stages pipeline independently — no stage waits for all tasks to finish before the next one starts.
+This is the core execution pipeline. For each layer of the DAG, all tasks move through **6 sequential batch stages**. Each stage completes fully (barrier) before the next begins. Within a stage, tasks run in parallel.
 
 ```mermaid
 graph TD
-    W[1. Create ALL Worktrees] --> F[2. Fleet Implementation — all parallel]
-
-    F --> |"T0 done"| R0[3a. Review T0]
-    F --> |"T2 done"| R2[3b. Review T2]
-    F --> |"T5 still running..."| wait["..."]
-
-    R0 --> |"reviews done"| M0[4a. Manual Review T0]
-    R2 --> |"reviews done"| M2["4b. Manual Review T2<br/>(queued behind T0)"]
-    wait --> |"T5 done"| R5[3c. Review T5]
-    R5 --> M5["4c. Manual Review T5<br/>(queued)"]
-
-    M0 --> P0[5a. PR for T0]
-    M2 --> P2[5b. PR for T2]
-    M5 --> P5[5c. PR for T5]
+    W["Stage 1: Create ALL Worktrees<br/>(synchronous)"] --> F["Stage 2: Fleet Implementation<br/>(all agents parallel — barrier)"]
+    F --> R["Stage 3: Tri-Review ALL tasks<br/>(3×N agents parallel — barrier)"]
+    R --> A["Stage 4: Auto-Apply ALL tasks<br/>(all agents parallel — barrier)"]
+    A --> M["Stage 5: Manual Review<br/>(sequential, user-driven)"]
+    M --> P["Stage 6: Create PRs<br/>(sequential per approval)"]
+    P --> Next{"Next layer?"}
+    Next -->|Yes| W
+    Next -->|No| Done[Pipeline complete]
 
     style W fill:#e3f2fd
     style F fill:#fff9c4
-    style R0 fill:#f3e5f5
-    style R2 fill:#f3e5f5
-    style R5 fill:#f3e5f5
-    style M0 fill:#fce4ec
-    style M2 fill:#fce4ec
-    style M5 fill:#fce4ec
-    style P0 fill:#e8f5e9
-    style P2 fill:#e8f5e9
-    style P5 fill:#e8f5e9
+    style R fill:#f3e5f5
+    style A fill:#e8f5e9
+    style M fill:#fce4ec
+    style P fill:#e8f5e9
 ```
 
-**Key principle:** Manual review is the bottleneck (it requires the human). Everything before it — implementation and code review — should pipeline so the user always has something ready to review.
+**Key principle:** Each stage is a clean batch with a barrier — no interleaving of stages, no polling, no streaming. Parallelism happens *within* each stage (multiple agents), not *across* stages.
 
-## Step 1: Create Worktrees
+## Stage 1: Create Worktrees
 
-See [worktree-naming.md](./worktree-naming.md) for naming conventions and branching rules.
-
-Use the `create-worktree` skill, overriding the branch source when chaining from a parent:
+Create all worktrees for the layer at once. See [worktree-naming.md](./worktree-naming.md) for naming conventions and branching rules.
 
 ```powershell
 $swarm = "auth-refactor"
@@ -53,38 +40,46 @@ git worktree add -b "feature/$user/$swarm/t3-jwt-provider" `
     "$worktreeRoot/t3-jwt-provider" "feature/$user/$swarm/t0-auth-interface"
 ```
 
-## Step 2: Fleet Implementation
+Update SQL: all tasks in this layer → `worktree_created`. Set `fleet_pipeline.layer_stage = 'worktrees_created'`.
 
-Deploy **fleet of agents** — one per worktree — all in parallel:
+## Stage 2: Fleet Implementation
+
+Launch **one `general-purpose` background agent per worktree** — all in parallel. Then **wait for ALL to complete** before proceeding.
 
 ```mermaid
 graph LR
-    subgraph "Fleet Deployment"
-        F[Fleet Controller]
-        F --> A1["Agent 1<br/>manifest-cleanup<br/>(general-purpose)"]
-        F --> A2["Agent 2<br/>dvt-consolidation<br/>(general-purpose)"]
-        F --> A3["Agent 3<br/>arg-adapter-modes<br/>(general-purpose)"]
-        F --> A4["Agent 4<br/>servicebus-trace<br/>(general-purpose)"]
+    subgraph "Fleet Deployment (parallel)"
+        F[Orchestrator]
+        F --> A1["Agent 1<br/>t0-manifest-cleanup"]
+        F --> A2["Agent 2<br/>t1-dvt-consolidation"]
+        F --> A3["Agent 3<br/>t2-arg-adapter"]
+        F --> A4["Agent 4<br/>t3-servicebus-trace"]
     end
+    A1 --> B["Barrier: wait for ALL"]
+    A2 --> B
+    A3 --> B
+    A4 --> B
 
     style F fill:#fff9c4
     style A1 fill:#e8f5e9
     style A2 fill:#e8f5e9
     style A3 fill:#e8f5e9
     style A4 fill:#e8f5e9
+    style B fill:#e3f2fd
 ```
 
 Each agent receives:
 - **Task description**: What to implement, which files to change, acceptance criteria
 - **Worktree path**: `cd` into the worktree before starting
-- **Context**: Any relevant session plan, ADO work item details, or prior analysis
+- **Context**: Session plan, ADO work item details, or prior analysis
+- **Sub-task breakdown**: Explicitly flag which sub-tasks are independent (for intra-agent parallelism)
 - **Instructions**: Make the changes, build, test, commit (don't push)
 
-Launch via `task` tool with `mode: "background"`:
+### Launch pattern
 
 ```
-task(agent_type: "general-purpose", mode: "background", prompt: """
-cd C:\_SRC\ZTS.worktrees\manifest-cleanup
+task(agent_type: "general-purpose", mode: "background", model: "claude-opus-4.6", prompt: """
+cd C:\_SRC\ZTS.worktrees\auth-refactor\t0-manifest-cleanup
 
 Task: Remove allowedRunModes from all ManifestBuilder tests (they're pure unit tests).
 - Files: src/DataProcessing/DataProcessing.Tests/Manifest/ManifestBuilderTests.cs
@@ -95,15 +90,15 @@ Task: Remove allowedRunModes from all ManifestBuilder tests (they're pure unit t
 """)
 ```
 
-### Parallelism within each agent
+### Intra-agent parallelism
 
-Each implementation agent is itself a `general-purpose` agent with full tool access. If a single node's task involves **multiple independent sub-tasks** (e.g., editing 4 different test files that don't interact), the agent should use parallel tool calls within its own context. The orchestrator's prompt should explicitly tell the agent which sub-tasks are independent:
+Each implementation agent has full tool access. If a task has **multiple independent sub-tasks** (e.g., editing 4 different test files), the agent should use parallel tool calls within its own context. The orchestrator's prompt should explicitly flag which sub-tasks are independent:
 
 ```
-task(agent_type: "general-purpose", mode: "background", prompt: """
-cd C:\_SRC\ZTS.worktrees\attr-cleanup
+task(agent_type: "general-purpose", mode: "background", model: "claude-opus-4.6", prompt: """
+cd C:\_SRC\ZTS.worktrees\auth-refactor\t0-attr-cleanup
 
-This node has 3 independent sub-tasks. Parallelize where possible:
+This task has 3 independent sub-tasks. Parallelize where possible:
 
 1. ManifestBuilderTests.cs — Remove allowedRunModes (pure unit tests)
 2. DvtTests.cs — Fold _Dvt() suffixed methods into base methods, add Dvt to environments
@@ -115,81 +110,122 @@ Commit each sub-task separately.
 """)
 ```
 
-**Don't wait for all agents to finish.** Poll with `list_agents` and as each agent completes, immediately kick off its code review (Step 3). Other agents keep running.
+### Waiting for all agents
 
-## Step 3: Multi-Model Code Review (per-task, streaming)
+**Polling recipe** (use this exact pattern):
 
-As soon as a fleet agent completes, launch its **review fleet** — don't wait for the other agents:
+```
+# 1. Collect all agent_ids from the task() launch calls
+# 2. Wait for each agent sequentially:
+read_agent(agent_id: "agent-1", wait: true, timeout: 300)
+read_agent(agent_id: "agent-2", wait: true, timeout: 300)
+# ... etc
+
+# 3. If any agent returns status: "running" after timeout:
+#    - Call read_agent again with wait: true, timeout: 300
+#    - Do NOT assume failure — implementation agents can take 5-10 minutes
+#    - Only mark as failed after 3 consecutive timeouts (15 min total)
+```
+
+**Why 300s?** The Copilot CLI's `read_agent` `timeout` parameter caps at 300 seconds. Implementation agents (especially Opus) can take 5-10 minutes. Always loop.
+
+**Do NOT use `list_agents` for polling** — it's a snapshot, not a wait. Use `read_agent` with `wait: true` for each agent individually.
+
+**Resilience:**
+- If an agent fails after retries, mark the task `failed` in SQL and continue with the remaining tasks. Do NOT retry the entire layer.
+- If a model (e.g., Opus) is unavailable, fall back to the next-best model (Sonnet 4.6).
+
+Update SQL: completed tasks → `implemented`, failed tasks → `failed`. Set `fleet_pipeline.layer_stage = 'implemented'`.
+
+## Stage 3: Tri-Review
+
+For each successfully implemented task, launch **3 code-review agents** (one per model). All 3×N review agents run in parallel. Wait for ALL to complete.
 
 ```mermaid
 graph TD
-    subgraph "Streaming Review Pipeline"
-        Poll[Poll: list_agents] --> |"Agent 1 done"| R1["Review fleet for T0<br/>3 models in background"]
-        Poll --> |"Agent 3 done"| R2["Review fleet for T2<br/>3 models in background"]
-        Poll --> |"Agents 2,4 still running"| Poll
-
-        R1 --> S1["Synthesize T0 findings"]
-        R2 --> S2["Synthesize T2 findings"]
-        S1 --> Q1["T0 → auto-apply findings"]
-        S2 --> Q2["T2 → auto-apply findings"]
+    subgraph "Review Fleet (all parallel)"
+        T0R1["T0 × Sonnet 4.6"]
+        T0R2["T0 × Codex 5.3"]
+        T0R3["T0 × Gemini 3 Pro"]
+        T1R1["T1 × Sonnet 4.6"]
+        T1R2["T1 × Codex 5.3"]
+        T1R3["T1 × Gemini 3 Pro"]
     end
+    T0R1 --> B["Barrier: wait for ALL"]
+    T0R2 --> B
+    T0R3 --> B
+    T1R1 --> B
+    T1R2 --> B
+    T1R3 --> B
+    B --> Synth["Synthesize per task"]
 
-    style Poll fill:#fff9c4
-    style R1 fill:#f3e5f5
-    style R2 fill:#f3e5f5
-    style Q1 fill:#e8f5e9
-    style Q2 fill:#e8f5e9
+    style T0R1 fill:#f3e5f5
+    style T0R2 fill:#f3e5f5
+    style T0R3 fill:#f3e5f5
+    style T1R1 fill:#f3e5f5
+    style T1R2 fill:#f3e5f5
+    style T1R3 fill:#f3e5f5
+    style B fill:#e3f2fd
 ```
 
-For each completed task, launch 3 `code-review` agents in background (one per model):
+### Launch pattern
 
 ```
-task(agent_type: "code-review", mode: "background", model: "gpt-5.3-codex", prompt: """
-Review changes in: C:\_SRC\ZTS.worktrees\manifest-cleanup
-Run: git diff <base_branch>
-(base_branch is stored in fleet_tasks.base_branch — use origin/main for Layer 0, parent task's branch for Layer 1+)
+task(agent_type: "code-review", mode: "background", model: "claude-sonnet-4.6", prompt: """
+Review changes in: C:\_SRC\ZTS.worktrees\auth-refactor\t0-manifest-cleanup
+Run: git diff origin/main
 Review for correctness, test coverage, edge cases, style.
 Rate issues as CRITICAL / IMPORTANT / MINOR.
 """)
 ```
 
-When all 3 reviews for a task complete:
+Launch 3 agents per task (models: `claude-sonnet-4.6`, `gpt-5.3-codex`, `gemini-3-pro-preview`).
+
+### Waiting for review agents
+
+Same polling pattern as Stage 2, but with shorter timeout since reviews are faster:
+
+```
+read_agent(agent_id: "review-1", wait: true, timeout: 120)
+read_agent(agent_id: "review-2", wait: true, timeout: 120)
+# etc.
+```
+
+If a review model times out after 2 attempts (4 min), proceed without it. 2-of-3 reviews is acceptable.
+
+### Synthesis
+
+After all reviews complete, synthesize per task:
 - Deduplicate across models (consensus = higher confidence)
 - Escalate severity on disagreements (take the higher)
 - Save findings to `files/reviews/layer-N/<task-id>-synthesis.md`
 
-## Step 3.5: Auto-Apply Review Findings
+**Resilience:** If a review model times out, proceed with the reviews that did complete. 2-of-3 is fine; 1-of-3 is acceptable with a warning. Record which models timed out in `fleet_reviews`.
 
-After review synthesis, the orchestrator **automatically applies** review findings — don't wait for the human. The user reviews already-refined code, not raw first drafts plus a list of comments.
+Update SQL: reviewed tasks → `reviewed`. Set `fleet_pipeline.layer_stage = 'reviewed'`.
+
+## Stage 4: Auto-Apply Review Findings
+
+For each task with auto-applicable findings, launch **one `general-purpose` agent per task** — all in parallel (they're in separate worktrees). Wait for ALL to complete.
 
 ```mermaid
 graph TD
-    Synth[Review synthesis complete] --> Triage{Triage each finding}
+    Synth["Synthesis complete for all tasks"] --> Launch["Launch auto-apply agents<br/>(one per task, parallel)"]
+    Launch --> AA1["Agent: Apply fixes in T0 worktree"]
+    Launch --> AA2["Agent: Apply fixes in T1 worktree"]
+    Launch --> AA3["Agent: Apply fixes in T2 worktree"]
+    AA1 --> B["Barrier: wait for ALL"]
+    AA2 --> B
+    AA3 --> B
 
-    Triage -->|Clear, actionable fix| Sanity{Sanity check}
-    Triage -->|Subjective / architectural| Flag["Flag for manual review"]
-
-    Sanity -->|Clear, actionable, unambiguous| Apply[Auto-apply fix in worktree]
-    Sanity -->|Ambiguous or risky| Flag["Flag for manual review<br/>(don't auto-apply)"]
-    Sanity -->|Contradicts another finding| Flag
-
-    Apply --> Build{Build + test}
-    Build -->|Pass| Commit[Commit: 'Address review: ...']
-    Build -->|Fail| Revert[Revert fix, flag for manual]
-
-    Commit --> Update[Update manifest + synthesis.md]
-    Flag --> Update
-    Revert --> Update
-
-    Update --> Ready["Task → ready for manual review"]
-
-    style Synth fill:#f3e5f5
-    style Apply fill:#e8f5e9
-    style Flag fill:#fff3e0
-    style Ready fill:#fce4ec
+    style Launch fill:#e8f5e9
+    style AA1 fill:#e8f5e9
+    style AA2 fill:#e8f5e9
+    style AA3 fill:#e8f5e9
+    style B fill:#e3f2fd
 ```
 
-### Sanity Check Criteria
+### Sanity check criteria
 
 A review finding is **auto-applicable** if ALL of these are true:
 - The fix is **unambiguous** — there's only one reasonable way to address it
@@ -197,7 +233,7 @@ A review finding is **auto-applicable** if ALL of these are true:
 - It **doesn't contradict** another finding from a different model
 - The fix can be **verified** by build + test
 
-Severity doesn't gate auto-apply — a MINOR trailing-whitespace fix and a CRITICAL logic bug fix both get applied if they're clear and verifiable. The only gate is whether the fix is unambiguous and safe.
+Severity doesn't gate auto-apply. A MINOR whitespace fix and a CRITICAL logic bug fix both get applied if they're clear and verifiable.
 
 Findings that are **flagged for manual review** (not auto-applied):
 - Ambiguous or subjective (e.g., "consider renaming this variable")
@@ -206,29 +242,32 @@ Findings that are **flagged for manual review** (not auto-applied):
 - Would require significant refactoring
 - Can't be verified by build/test alone
 
-### Auto-Apply Procedure
+### Launch pattern
 
-For each auto-applicable finding:
-1. Launch a `general-purpose` agent targeting the worktree:
-   ```
-   task(agent_type: "general-purpose", prompt: """
-   cd C:\_SRC\ZTS.worktrees\manifest-cleanup
-   
-   Apply this review finding:
-   [Finding: Default allowedRunModes is LocalWithMocks, not AnyTestMode.
-    Removing the attribute doesn't mean "run everywhere".]
-   
+Each auto-apply agent receives ALL auto-applicable findings for its task and applies them in sequence:
+
+```
+task(agent_type: "general-purpose", mode: "background", prompt: """
+cd C:\_SRC\ZTS.worktrees\auth-refactor\t0-manifest-cleanup
+
+Apply these review findings in order. For each one:
+- Apply the fix
+- Build: dotnet build
+- Test: dotnet test --filter ManifestBuilder
+- If build/test passes, commit: "Address review: <summary>"
+- If build/test fails, revert and report which finding failed
+
+Findings to apply:
+1. [CRITICAL] Default allowedRunModes is LocalWithMocks, not AnyTestMode.
    Fix: Add explicit `allowedRunModes: TestRunModes.AnyTestMode` to each attribute.
-   Build: dotnet build
-   Test: dotnet test --filter ManifestBuilder
-   If build/test fails, revert your changes and report the failure.
-   Commit: "Address review: explicit AnyTestMode for ManifestBuilder tests"
-   """)
-   ```
-2. If build/test passes → commit stands, finding marked `addressed`
-3. If build/test fails → revert, finding marked `flagged_for_manual`
+2. [MINOR] Trailing whitespace on line 47.
+   Fix: Remove trailing whitespace.
+3. [MINOR] Missing XML doc comment on ValidSingleManifest.
+   Fix: Add XML doc comment.
+""")
+```
 
-### Updated Synthesis File
+### Updated synthesis file
 
 After auto-apply, the synthesis file is updated:
 
@@ -250,98 +289,86 @@ After auto-apply, the synthesis file is updated:
 - ✅ Missing XML doc comment on `ValidSingleManifest` (Gemini) — added (commit d4e5f6g)
 ```
 
-## Step 4: Manual Review (one at a time, never blocked)
+Update SQL: tasks with applied fixes → `auto_applied`. Set `fleet_pipeline.layer_stage = 'auto_applied'`.
 
-The user reviews tasks **one at a time**, in the order they become ready. By this point, CRITICAL and IMPORTANT review findings have already been auto-applied — the user is reviewing **refined code**, not raw output. Only flagged items need human judgment.
+## Stage 5: Manual Review
 
-Meanwhile, implementation, review, and auto-apply of other tasks continue in the background.
+Present tasks **one at a time** for the user. By this point, auto-applicable findings have been applied — the user reviews refined code and only flagged items need human judgment.
+
+No background work is running — all implementation, review, and auto-apply for this layer completed in prior stages.
 
 ```mermaid
 graph TD
-    subgraph "Manual Review — foreground"
-        Open[Open worktree in editor] --> Show["Show diff + flagged findings only<br/>(auto-applied items shown as ✅)"]
-        Show --> User{User decision}
-        User -->|Approve| PR[Create PR immediately]
-        User -->|Request changes| Fix[Apply fixes]
-        Fix --> Show
-        User -->|Skip for now| Queue[Return to queue]
-        User -->|Fold into another| Consolidate[Cherry-pick → target worktree]
-        Consolidate --> Delete[Delete folded worktree]
-    end
-
-    subgraph "Background — continues during review"
-        BG1["Agent 4 still implementing..."]
-        BG2["Auto-applying T1 review fixes..."]
-        BG3["Review fleet for T5 running..."]
-    end
-
-    PR --> Next{More tasks ready?}
+    Open[Open worktree in editor] --> Show["Show diff + flagged findings only<br/>(auto-applied items shown as ✅)"]
+    Show --> User{User decision}
+    User -->|Approve| Mark[Mark approved]
+    User -->|Request changes| Fix[Apply fixes in worktree]
+    Fix --> Show
+    User -->|Skip for now| Queue[Return to queue]
+    User -->|Fold into another| Consolidate[Cherry-pick → target worktree]
+    Consolidate --> Delete[Delete folded worktree]
+    Mark --> Next{More tasks?}
     Queue --> Next
     Delete --> Next
     Next -->|Yes| Open
-    Next -->|No, but background work pending| Wait[Wait for next task to become ready]
-    Wait --> Open
-    Next -->|All done| LayerDone[Layer complete]
+    Next -->|No| StageDone[Stage complete]
 
     style Open fill:#e3f2fd
     style User fill:#fce4ec
-    style PR fill:#e8f5e9
-    style BG1 fill:#fff9c4,stroke-dasharray: 5 5
-    style BG2 fill:#e8f5e9,stroke-dasharray: 5 5
-    style BG3 fill:#f3e5f5,stroke-dasharray: 5 5
+    style Mark fill:#e8f5e9
 ```
 
-For each task presented:
+For each task:
 1. Open in VS Code (`code-insiders <worktree-path>`)
-2. Show the diff (including auto-applied commits) and **only flagged findings** that need human judgment
+2. Show the diff (including auto-applied commits) and **only flagged findings**
 3. User reviews — most review items are already resolved
 4. Make any remaining requested changes
-5. On approval → **immediately** push + create PR (don't batch)
+5. On approval → mark `approved`
 
-## Step 5: Create PR (immediately on approval)
+Update SQL: approved tasks → `approved`, consolidated tasks → `consolidated`. Set `fleet_pipeline.layer_stage = 'manual_reviewed'`.
 
-Each PR is created **as soon as** the user approves the worktree — no batching:
+## Stage 6: Create PRs
+
+For each approved task, create a PR. Done sequentially (each PR depends on the push succeeding):
 
 1. **Push** the branch to remote
-2. **Create PR** via ADO REST API (for multiline descriptions) or `az repos pr create`
+2. **Create PR** via ADO REST API or `az repos pr create`
 3. **Link work items** to the PR
-4. **Set reviewers** (suggest based on code owners or user preference)
+4. **Set reviewers**
 5. **Update SQL**: `status → pr_created`, record `pr_url`
 
-**PR target branch:** Always `main`. For Layer 1+ tasks that branched from a parent task, **delay PR creation until the parent's PR has merged to main**. Start implementation immediately (to keep the pipeline flowing), but hold the PR. Once the parent merges:
-1. Rebase the child branch onto updated `origin/main`
-2. Build + test to confirm
-3. Then create PR targeting `main`
-
-This keeps PR diffs clean — each PR shows only its own task's changes.
-
 ```powershell
-# Push
 git -C $worktreePath push -u origin $branchName
 
-# Create PR (ADO REST for multiline descriptions)
 az repos pr create --repository $repo --source-branch $branchName --target-branch main `
   --title "T0: Remove unnecessary allowedRunModes from ManifestBuilder tests" `
   --description "..." --work-items $workItemId
 ```
 
-Then immediately present the **next ready task** for manual review (if one is ready).
+**PR target branch:** Always `main`. For Layer 1+ tasks that branched from a parent task, **delay PR creation until the parent's PR has merged to main**. Once the parent merges:
+1. Rebase the child branch onto updated `origin/main`
+2. Build + test to confirm
+3. Then create PR targeting `main`
 
-## Step 6: Layer Completion & Cleanup
+Update SQL: set `fleet_pipeline.layer_stage = 'prs_created'`.
 
-A layer is complete when every task in it is either `done`, `pr_created`, or `consolidated`.
+## Layer Completion & Cleanup
 
-After all tasks in a layer reach terminal state:
+A layer is complete when every task in it is `pr_created`, `consolidated`, or `failed`.
+
+After all tasks reach terminal state:
 1. Optionally delete worktrees (`git worktree remove <path>`)
-2. Update SQL: increment `current_layer`
-3. Check if any Layer N+1 nodes are now unblocked
+2. Update SQL: increment `fleet_pipeline.current_layer`
+3. Check if any deferred tasks are now unblocked
 4. Report layer summary to user
-5. Begin Layer N+1 (back to Step 1)
+5. Begin next layer (back to Stage 1)
 
 ## Consolidation
 
-If the user decides a small task should be folded into a larger one:
+If the user decides during manual review to fold a small task into a larger one:
 1. Cherry-pick the commits from the small worktree onto the larger one
 2. Update SQL tracking
 3. Update linked work items
 4. Delete the folded worktree and branch
+
+See [consolidation.md](./consolidation.md) for details.

@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS fleet_pipeline (
 --   ('description', 'Refactor auth system'),
 --   ('repo_root', 'C:\_SRC\ZTS'),
 --   ('worktree_root', 'C:\_SRC\ZTS.worktrees\auth-refactor'),
---   ('current_layer', '0');
+--   ('current_layer', '0'),
+--   ('layer_stage', 'worktrees_created');
+-- Valid layer_stage values: worktrees_created, implementing, implemented,
+--   reviewing, reviewed, auto_applying, auto_applied, manual_reviewing, prs_created
 
 CREATE TABLE IF NOT EXISTS fleet_tasks (
     id TEXT PRIMARY KEY,       -- same id as in todos table
@@ -38,6 +41,6 @@ CREATE TABLE IF NOT EXISTS fleet_reviews (
     model TEXT NOT NULL,
     severity TEXT,             -- CRITICAL, IMPORTANT, MINOR
     finding TEXT NOT NULL,
-    status TEXT DEFAULT 'open', -- open, auto_applied, flagged, dismissed
+    status TEXT DEFAULT 'open', -- open, auto_applied, flagged, dismissed, timeout
     FOREIGN KEY (task_id) REFERENCES fleet_tasks(id)
 );
