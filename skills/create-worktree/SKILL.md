@@ -9,8 +9,8 @@ Create a new git branch and worktree from context (ADO Work Item, comment, or fr
 
 ## Username Detection
 
-Determine the user's short username for branch naming. Try in order:
-1. `git config user.name` — use first token, lowercased
+Determine the user's alias for branch naming. Try in order:
+1. `git config user.email` — extract the part before `@`, lowercased (e.g., `avilevin@microsoft.com` → `avilevin`)
 2. `$env:USERNAME` (Windows) or `$env:USER` (Unix)
 3. Fall back to `user`
 

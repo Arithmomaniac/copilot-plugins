@@ -21,10 +21,11 @@ Activate this skill when the user says any of the following (case-insensitive):
 
 ### Determine the Mode
 
-- **Regular Goral HaGra** (default): Torah only (Genesis through Deuteronomy). Use this when the user says "Torah", "Chumash", "regular goral", or does not specify.
+- **Regular Goral HaGra**: Torah only (Genesis through Deuteronomy). Use this when the user says "Torah", "Chumash", or "regular goral".
 - **Extended Goral HaGra**: Full Tanakh (Torah + Nevi'im + Ketuvim). Use this when the user says "Tanakh", "extended goral", "full Tanakh", "all of Tanakh", "Nevi'im", or "Ketuvim".
+- **Default mode**: If the user does not specify a mode, read `defaultMode` from `~/.claude/skills/goral-hagra/config.json`. The value is either `"torah"` or `"tanakh"`. If the config does not yet exist or lacks `defaultMode`, the user will be asked during first-use setup (see Step 3).
 
-If the user provides context about their decision or question, remember it — you will need it for the Reflection step.
+If the user provides context about their decision or question, remember it — you will need it for the Responsum step.
 
 ## 2. Random Verse Selection
 
@@ -39,28 +40,31 @@ Run the PowerShell script to get a random verse:
 
 The script returns a verse reference (e.g., `Genesis 32:11` or `Psalms 27:4`). Capture this reference for subsequent steps.
 
-## 3. First-Use Translation Setup
+## 3. First-Use Settings Setup
 
-Check if `~/.claude/skills/goral-hagra/config.json` exists and contains a `preferredTranslation` field.
+Check if `~/.claude/skills/goral-hagra/config.json` exists and contains both `preferredTranslation` and `defaultMode`.
 
-### If config does NOT exist or lacks `preferredTranslation` (first use):
+### If config does NOT exist or is missing either field (first use):
 
 1. Run the script to fetch available translations for this verse:
    ```powershell
    ~/.claude/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action get-translations -Reference "<the reference>"
    ```
-2. Present the list of available English translations to the user and ask them to choose one.
-3. Save their choice to `~/.claude/skills/goral-hagra/config.json`:
+2. Ask the user **two questions** (one at a time):
+   - **Translation**: Present the list of available English translations and ask them to choose one.
+   - **Default mode**: Ask whether they prefer **Torah only** (regular Goral HaGra) or **Full Tanakh** (extended Goral HaGra) as their default when they don't specify a mode.
+3. Save both choices to `~/.claude/skills/goral-hagra/config.json`:
    ```json
    {
-     "preferredTranslation": "The Koren Jerusalem Bible"
+     "preferredTranslation": "The Koren Jerusalem Bible",
+     "defaultMode": "torah"
    }
    ```
-4. Use this translation for the current and all future requests.
+4. Use these settings for the current and all future requests.
 
-### If config exists and has `preferredTranslation`:
+### If config exists and has both fields:
 
-Read the value and use it. Do not ask the user again.
+Read the values and use them. Do not ask the user again.
 
 ## 4. Fetch Verse Data from Sefaria
 
@@ -86,7 +90,7 @@ If the verse has clear thematic content (e.g., mentions a specific topic like tr
 ~/.claude/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action search-related -Query "<key phrase from the verse>" -Filters "Tanakh","Midrash","Talmud" -Size 3
 ```
 
-Use the search results to enrich your contextual understanding and inform the Reflection step. Do **NOT** present raw search results to the user.
+Use the search results to enrich your contextual understanding and inform the Responsum step. Do **NOT** present raw search results to the user.
 
 ## 6. Clarification Step
 
@@ -99,26 +103,27 @@ Use the search results to enrich your contextual understanding and inform the Re
 
 ## 7. Presentation Format
 
-Present the result using this exact format:
+Present the result in the style of a **rabbinical responsum (teshuvah)**. The tone should be warm but authoritative, as if a learned rabbi is carefully considering the question and drawing wisdom from the sources. Use formal yet accessible language. Address the questioner's situation directly, weaving the verse and commentary into a cohesive, deliberative answer — not a bulleted report.
+
+Use this structure:
 
 ---
 
-**🎲 The Goral HaGra returned: [Reference in English] / [Reference in Hebrew]**
+**🎲 The Goral HaGra has spoken: [Reference in English] / [Reference in Hebrew]**
 
-**📖 The Verse (Hebrew):**
+**📖 The Verse:**
+
 > [Full Hebrew text of the verse — copied exactly from the API response]
 
-**📖 The Verse (English — [Translation Name]):**
-> [Full English text of the verse]
+> [Full English text — [Translation Name]]
 
-**📝 Context:**
-[Brief explanation of where this verse falls in the narrative or textual context. What is the chapter about? What comes before and after this verse? 2–3 sentences maximum.]
+**📝 On the Matter at Hand (B'inyan HaNidon):**
 
-**📚 From the Commentators:**
-[Present 2–4 commentators, one bullet each. Format: **Name**: one-sentence distillation of their key insight on this verse. Do NOT elaborate per-commentator on how it relates to the user — save that for the Reflection. Keep the total commentator section to ~4–6 lines.]
+[Open with a brief framing of the question or decision the user is facing, then introduce the verse and its place in the broader narrative. Where does it sit in the chapter? What is happening in the surrounding text? Transition naturally into the commentators' insights — do not list them as bullet points. Instead, weave them into flowing prose: "Rashi teaches us that..., and the Ramban adds a deeper layer, noting that..., while the Sforno draws our attention to...". Present the commentators as voices in a conversation, building upon one another.]
 
-**💡 Reflection:**
-[Your synthesis connecting the verse and commentary to the user's specific situation or decision. This must be grounded entirely in the textual sources — not your own opinion. Frame it as "The verse and its commentators suggest..." rather than "I think..." or "In my opinion...". Be thoughtful, specific, and respectful.]
+**💡 Responsum (Maskana):**
+
+[This is the heart of the teshuvah. Synthesize the verse, its context, and the commentary into a direct, grounded response to the user's situation. Write as though rendering a considered opinion based on the sources: "In light of what the verse teaches and the commentators reveal, it would seem that..." or "The weight of the sources suggests...". Be specific to the user's situation. Do not hedge excessively or speak in vague generalities. Ground every claim in the textual sources — never in your own opinion. Close with a brief, encouraging or contemplative final sentence that honors the gravity of seeking guidance through this tradition.]
 
 ---
 
@@ -127,7 +132,7 @@ Present the result using this exact format:
 - **Ground everything in Sefaria data.** Do not invent, fabricate, or loosely paraphrase commentary. Only cite what the API actually returned.
 - **Hebrew text must be exact.** Copy it directly from the API response. Do not transliterate, modify, or "fix" it.
 - **If the API call fails**, inform the user that there was an error reaching Sefaria and suggest trying again. Do not attempt to generate verse text from memory.
-- **Do not editorialize.** The Reflection section should synthesize the traditional sources. Do not add your own theological opinions, personal beliefs, or speculative interpretations.
+- **Do not editorialize.** The Responsum section should synthesize the traditional sources in the style of a rabbinical teshuvah. Do not add your own theological opinions, personal beliefs, or speculative interpretations. Speak through the sources.
 - **Respect the practice.** The Goral HaGra is a meaningful Jewish tradition attributed to the Vilna Gaon. Present it with appropriate gravity, reverence, and respect.
 - **One verse only.** The Goral HaGra returns exactly one verse. Do not suggest "trying again" or "getting another one" unless the user explicitly asks to do so.
 - **Language sensitivity.** If the user communicates in Hebrew, present the non-verse portions of the response in Hebrew as well. Match the user's language.
