@@ -1,6 +1,6 @@
 ---
 name: azsafe
-description: Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.
+description: Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed. MUST be loaded before making any az CLI calls — invoke proactively whenever Azure CLI or ADO API queries are needed.
 ---
 
 # azsafe - Safe Azure CLI Proxy
@@ -39,7 +39,28 @@ az group create -n newRG -l eastus
 az vm delete -g myRG -n myVM --yes
 ```
 
-## Allowed Verbs (via azsafe.ps1)
+## Shell Execution Guidance
+
+The Copilot CLI's shell tool defaults to a 10-second timeout (`initial_wait`). Most `az` commands — especially `az devops invoke` — take 15-30 seconds. **Always specify `initial_wait: 30` minimum** for any `azsafe.ps1` call.
+
+| Operation | `initial_wait` | Notes |
+|-----------|----------------|-------|
+| `az group list`, `az vm show` | 30s | Standard ARM queries |
+| `az devops invoke` (timeline, logs) | 30-60s | ADO API is slower than ARM |
+| `az account get-access-token` | 30s | Token acquisition |
+| `az devops invoke` (large log fetch) | 60s | Logs can be 5000+ lines |
+
+**Example with correct timeout:**
+```powershell
+# Mode: sync, initial_wait: 30
+C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1 devops invoke `
+    --area build --resource timeline `
+    --route-parameters project=One buildId=12345 `
+    --org https://msazure.visualstudio.com `
+    --output json
+```
+
+## Allowed Verbs(via azsafe.ps1)
 
 Read from [allowed-verbs.txt](allowed-verbs.txt):
 
@@ -60,10 +81,9 @@ Read from [allowed-verbs.txt](allowed-verbs.txt):
 | `preview` | Preview changes |
 | `query` | Run read-only queries (WIQL, KQL, ARG, etc.) |
 | `login` | Azure authentication |
-| `logout` | Clear auth state |
 | `account` | Account management |
-| `configure` | CLI configuration |
 | `version` | Show version |
+| `search` | Search extension/command index |
 
 ## Special Handling: REST-style Commands
 
