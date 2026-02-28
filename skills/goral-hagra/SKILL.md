@@ -130,6 +130,7 @@ Use this structure:
 ## 8. Important Guidelines
 
 - **Ground everything in Sefaria data.** Do not invent, fabricate, or loosely paraphrase commentary. Only cite what the API actually returned.
+- ⛔ **DO NOT generate Hebrew text, translations, or rabbinic commentary from memory/training data.** ✅ **ALWAYS fetch verse data from the Sefaria API via web_fetch.** The skill's accuracy depends on live API data.
 - **Hebrew text must be exact.** Copy it directly from the API response. Do not transliterate, modify, or "fix" it.
 - **If the API call fails**, inform the user that there was an error reaching Sefaria and suggest trying again. Do not attempt to generate verse text from memory.
 - **Do not editorialize.** The Responsum section should synthesize the traditional sources in the style of a rabbinical teshuvah. Do not add your own theological opinions, personal beliefs, or speculative interpretations. Speak through the sources.
