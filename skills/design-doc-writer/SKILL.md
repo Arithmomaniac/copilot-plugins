@@ -1,10 +1,6 @@
 ---
 name: design-doc-writer
-description: >-
-  Guide writing design documents through a staged workflow — problem validation, design skeleton,
-  decision resolution, editorial hardening. Prevents premature expansion and structural churn.
-  Use when the user says "write a design doc", "design document", "create a design proposal",
-  "start a design", "new design doc", "RFC", "tech spec", or "document a design decision".
+description: Guide writing design documents through a staged workflow. Prevents premature expansion and structural churn. Use when the user says write a design doc, design document, create a design proposal, start a design, new design doc, RFC, tech spec, or document a design decision.
 ---
 
 # Design Doc Writer
