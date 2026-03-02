@@ -159,6 +159,6 @@ a separate concern?
 ## Flow Diagram Guidelines
 
 - Use ASCII art or mermaid — both survive markdown rendering and ADO wiki
-- Show the two key flows: "does this test run?" and "what does it run against?"
+- Diagram the two key decision flows for the system: "how does a request/event enter?" and "what decides the outcome?" For example, in a test-execution framework: "does this test run?" and "what does it run against?"
 - Label decision points with the DD they relate to
 - Keep diagrams ≤25 lines — longer diagrams belong in Appendix

@@ -26,6 +26,10 @@ Every section the LLM writes must be:
 
 ## Stages
 
+### Review Mode
+
+If the user provides an existing design document for review (rather than asking to write one), assess it against the Stage 0–3 criteria and checklist instead of starting from scratch. Report which stage the document is at, what's missing, and what should change — then iterate with the user.
+
 ### Stage 0 — Problem Validation (≤1 page)
 
 Write **only** these sections:
@@ -37,29 +41,34 @@ Write **only** these sections:
 
 **Rules:**
 - No HLD, no phases, no diagrams yet.
-- The ServiceBus `FullyQualifiedName!~` YAML hack is a good example of a concrete problem statement entry — specific, evidenced, motivating.
+- Problem statements should be concrete and evidenced — e.g., a specific workaround, error pattern, or operational incident. See [reference.md](reference.md) for examples.
 - Share with 1–2 stakeholders. Get sign-off on the problem before writing solutions.
 
 **Gate:** Stakeholder confirms the problems are the right problems. Do NOT proceed to Stage 1 until this gate passes.
+If the user chooses to proceed without stakeholder review, note the risk once and continue — do not block.
 
 ### Stage 1 — Design Skeleton (2–3 pages)
 
 Add these sections:
 
+> **Note:** Items below are listed in *writing order*. The final document order is defined in [reference.md](reference.md) — Background appears before Problem Statement in the finished document, even though it's written after Stage 0 content.
+
 5. **Background** — ≤15 lines of causal narrative. Why the current system is broken. Detailed current-system diagrams go in Appendix.
 6. **HLD** — Central principle (1 paragraph) + one paragraph per major component.
 7. **Design Decision stubs** — Question title + 2–3 option names. No elaboration yet (prevents concept elaboration before validation).
 8. **Open Questions** — Things you know you don't know. Separate from Design Decisions (DDs have options; OQs don't yet).
-9. **Before/After comparison** — Show current state and proposed state using the same table/diagram structure. This pattern survives every rewrite.
+9. **Before/After comparison (embedded)** — Show current state and proposed state using the same table/diagram structure, embedded within Background (current) and HLD (proposed). Not a standalone section.
 10. **Flow diagrams** — ASCII art or mermaid for runtime behavior. Diagrams resist narrative drift.
 
 **Rules:**
-- No prose longer than 3 sentences per subsection.
+- Keep prose to 3–5 sentences per subsection.
 - No pros/cons tables yet.
-- Each Problem Statement entry maps to exactly one DD or OQ. If a problem doesn't motivate a decision, cut it. If a decision has no problem, add the problem or cut the decision.
+- Each Problem Statement entry maps to at least one DD or OQ. If a problem doesn't motivate a decision, cut it. If a decision has no problem, add the problem or cut the decision.
+- In greenfield designs with no existing system to migrate from, the Problem Statement may describe design constraints or requirements gaps that motivate the design as a whole. Trace at the section level rather than requiring entry-level 1:1 mapping.
 - Decision format is stable from this point: `### D1 — <Question Title>` with options listed as bullets.
 
 **Gate:** Review with design reviewers. Validate the decision *questions* are the right ones. Validate the option space is complete.
+If the user chooses to proceed without stakeholder review, note the risk once and continue — do not block.
 
 ### Stage 2 — Decision Resolution (full doc)
 
