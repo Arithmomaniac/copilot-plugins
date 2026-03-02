@@ -1,6 +1,6 @@
 ---
 name: design-doc-writer
-description: Guide writing design documents through a staged workflow. Prevents premature expansion and structural churn. Use when the user says write a design doc, design document, create a design proposal, start a design, new design doc, RFC, tech spec, or document a design decision.
+description: Guide writing and restructuring design documents through a staged workflow. Prevents premature expansion and structural churn. Use when the user says write a design doc, design document, create a design proposal, start a design, new design doc, RFC, tech spec, document a design decision, restructure this design doc, improve this design doc, review this design doc, or this doc needs work.
 ---
 
 # Design Doc Writer
@@ -22,9 +22,26 @@ Every section the LLM writes must be:
 
 ## Stages
 
-### Review Mode
+### Review / Brownfield Mode
 
-If the user provides an existing design document for review (rather than asking to write one), assess it against the Stage 0–3 criteria and checklist instead of starting from scratch. Report which stage the document is at, what's missing, and what should change — then iterate with the user.
+When the user provides an existing design document — for review, restructuring, or iteration — do NOT start from Stage 0 scratch. Instead:
+
+1. **Assess the current stage.** Read the document and determine which stage it's at:
+   - Has a Problem Statement and Scope? → at least Stage 0
+   - Has HLD, decision stubs, Before/After tables? → at least Stage 1
+   - Has resolved decisions with rationale, phases, appendix? → at least Stage 2
+   - None of the above? → pre-Stage 0 (draft/sketch)
+
+2. **Identify structural gaps.** Check what's missing relative to the skill's framework:
+   - No Problem Statement? → the most common gap. Propose one extracted from the existing content.
+   - Decisions buried inline (blockquotes, asides, phase descriptions)? → propose extracting to a `## Design Decisions` section.
+   - No Scope section? → adjacent concerns are probably creeping in.
+   - Background/context front-loaded before the design? → propose moving detail to appendix.
+   - Implementation detail for uncertain phases? → propose compressing to skeleton + appendix.
+
+3. **Propose changes, don't rewrite.** Present a numbered list of structural changes with rationale. Let the user approve before applying. Preserve all existing content — restructure, don't delete.
+
+4. **Apply the same style rules and anti-pattern checks** as greenfield writing. The anti-patterns (A1–A8) are even more relevant for brownfield docs that have already accumulated churn.
 
 ### Stage 0 — Problem Validation (≤1 page)
 
