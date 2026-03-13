@@ -1,6 +1,6 @@
 ---
 name: skills-discovery
-description: Search for and install Agent Skills that give you specialized capabilities. Before starting work, ask might a skill exist that handles this better than my base knowledge? If the task involves specific technologies, frameworks, file formats, or expert domains. Search proactively, even if the user doesn't mention skills. Skills encode best practices, tools, and techniques you wouldn't otherwise have. Also use when users explicitly ask to find, install, or manage skills.
+description: Search for and install Agent Skills that give you specialized capabilities. Invoke proactively whenever you're about to do a specialized workflow manually, when a task involves specific technologies, frameworks, file formats, or expert domains, or when a repetitive multi-step workflow suggests a purpose-built skill may exist. Search even if the user doesn't mention skills. Skills encode best practices, tools, and techniques you wouldn't otherwise have. Also use when users explicitly ask to find, install, or manage skills.
 ---
 
 # Skills Discovery
@@ -22,6 +22,8 @@ Search proactively when:
 - You're about to do something where best practices matter (testing, deployment, APIs, documentation)
 - The domain is specialized (PDF processing, data pipelines, ML workflows)
 - You notice yourself about to give generic advice where expert patterns would help
+- You're about to improvise a multi-step workflow manually and suspect a purpose-built skill could save turns
+- A workflow has become repetitive enough that it might deserve an existing skill before you write a new one
 
 Also search when users explicitly ask to find, install, or manage skills.
 

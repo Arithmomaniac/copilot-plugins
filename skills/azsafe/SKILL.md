@@ -9,6 +9,8 @@ This skill provides a safe way to run read-only Azure CLI commands by proxying t
 
 ## When to Use
 
+> **Related skills**: Load `ado-cli` for ADO command patterns and reference. Use `diagnose-ado-build-failures` if a build is failing before attempting a release.
+
 - **Use `azsafe.ps1`** for read-only operations: listing, showing, querying, exporting data
 - **Use `az` directly** when you need to perform write operations (create, delete, update, etc.)
 

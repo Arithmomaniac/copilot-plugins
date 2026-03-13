@@ -1,6 +1,6 @@
 ---
 name: skill-writer
-description: Guide users through creating Agent Skills for Claude Code. Use when the user wants to create, write, author, or design a new Skill, or needs help with SKILL.md files, frontmatter, or skill structure.
+description: Guide users through creating Agent Skills for Claude Code. Use when the user wants to create, write, author, or design a new Skill, or needs help with SKILL.md files, frontmatter, or skill structure. Before creating a new skill, check whether an existing skill can be reused, extended, or discovered first.
 ---
 
 # Skill Writer
@@ -15,6 +15,7 @@ Use this Skill when:
 - Designing skill structure and frontmatter
 - Troubleshooting skill discovery issues
 - Converting existing prompts or workflows into Skills
+- The workflow is genuinely novel and not already covered by an installed or discoverable skill
 
 ## Instructions
 
@@ -27,8 +28,14 @@ First, understand what the Skill should do:
    - When should Claude use this Skill?
    - What tools or resources does it need?
    - Is this for personal use or team sharing?
+   - Could this be a refinement of an existing skill instead of a brand-new one?
 
-2. **Keep it focused**: One Skill = one capability
+2. **Check for reuse first**:
+   - Re-read nearby installed skills if the workflow sounds adjacent
+   - Use a discovery/search skill before creating a new one for a domain you haven't checked yet
+   - Prefer extending an existing skill when the new behavior is a tighter trigger, fallback, or reference section
+
+3. **Keep it focused**: One Skill = one capability
    - Good: "PDF form filling", "Excel data analysis"
    - Too broad: "Document processing", "Data tools"
 
