@@ -1,7 +1,7 @@
 ---
 name: skill-audit
 description: "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'."
-tools: ["execute/getTerminalOutput", "execute/runInTerminal", "search", "web/fetch", "agent", "todo"]
+tools: ["execute", "read", "edit", "search", "agent", "todo"]
 model: Claude Sonnet 4.6
 argument-hint: Lookback window (e.g. "14 days") or specific skills to focus on
 ---
@@ -35,19 +35,41 @@ You are an **analyst**, not a coder. You:
 
 The ground truth for skill invocations lives in the enriched session database at `~/.copilot/session-store.db`, in `cst_content_blocks` with `kind = 'skill'`.
 
-If `cst_content_blocks` doesn't exist, run `copilot-session-tools scan --verbose` first.
+## Prerequisites
+
+- **copilot-session-tools** CLI on PATH (`copilot-session-tools --help` to verify; install with `uv tool install copilot-session-tools[all]` if missing)
+- Enriched session database at `~/.copilot/session-store.db` with `cst_*` tables (run `copilot-session-tools scan --verbose` if tables don't exist)
 
 #### 1a. Count recent sessions and skill coverage
 
 Normalize the paired `"Loaded skill: X"` + `"X"` records before counting:
 
 ```python
-import sqlite3, json
+import sqlite3, json, os
 
-db = "~/.copilot/session-store.db"  # resolve path
+db = os.path.expanduser("~/.copilot/session-store.db")
 conn = sqlite3.connect(db)
 cur = conn.cursor()
 
+# Total sessions and skill-active sessions in the lookback window
+totals = cur.execute('''
+    SELECT
+        (SELECT COUNT(*) FROM cst_sessions WHERE datetime(created_at) >= datetime('now', '-14 days')) AS total_sessions,
+        (SELECT COUNT(DISTINCT s.session_id)
+         FROM cst_content_blocks cb
+         JOIN cst_messages m ON m.id = cb.message_id
+         JOIN cst_sessions s ON s.session_id = m.session_id
+         WHERE cb.kind = 'skill'
+           AND datetime(s.created_at) >= datetime('now', '-14 days')
+           AND trim(cb.content) <> '') AS skill_sessions
+''').fetchone()
+print(f"Total sessions: {totals[0]}, with skill activity: {totals[1]}")
+
+# Per-skill logical uses (deduped per message_id)
+# NOTE: Both "Loaded skill: X" and "X" content blocks typically share the
+# same message_id. The DISTINCT on (skill_name, message_id) collapses
+# these pairs. If a future schema change puts them in separate messages,
+# this dedup key would need updating.
 q = '''
 WITH normalized AS (
     SELECT
@@ -68,6 +90,8 @@ WITH normalized AS (
 )
 SELECT * FROM counts ORDER BY logical_uses DESC;
 '''
+for row in cur.execute(q):
+    print(row)
 ```
 
 Key metrics: total sessions, sessions with skill activity, per-skill logical uses and session count.
@@ -123,11 +147,55 @@ Distinguish harmless repetition (skill needed at different phases) from wasteful
 
 #### 3b. Post-invocation command failures
 
-Check ADO CLI error rates, Kusto tool error rates, and truncation/timeout patterns using `cst_command_runs` and `cst_tool_invocations`.
+Check ADO CLI error rates, Kusto tool error rates, and truncation/timeout patterns.
+
+**Schema reference:**
+- `cst_command_runs`: `id`, `message_id`, `command`, `title`, `result`, `status`, `output`, `timestamp`
+- `cst_tool_invocations`: `id`, `message_id`, `name`, `input`, `result`, `status`, `start_time`, `end_time`, `source_type`, `invocation_message`, `subagent_invocation_id`
+
+**ADO CLI error classification:**
+
+```sql
+SELECT
+  CASE
+    WHEN lower(cr.output) LIKE '%azsafe: blocked%' THEN 'AZSAFE_BLOCKED'
+    WHEN lower(cr.output) LIKE '%unrecognized arguments%' OR lower(cr.output) LIKE '%invalid choice%' THEN 'CLI_ERROR'
+    WHEN lower(cr.output) LIKE '%error%' THEN 'OTHER_ERROR'
+    ELSE 'OK'
+  END AS category,
+  COUNT(*) AS count
+FROM cst_command_runs cr
+JOIN cst_messages m ON m.id = cr.message_id
+JOIN cst_sessions s ON s.session_id = m.session_id
+WHERE datetime(s.created_at) >= datetime('now', '-14 days')
+  AND (lower(cr.command) LIKE '%az devops%' OR lower(cr.command) LIKE '%az pipelines%')
+GROUP BY category ORDER BY count DESC;
+```
+
+**Kusto/MCP tool error rate:**
+
+```sql
+SELECT
+  CASE
+    WHEN lower(ti.status) LIKE '%error%' OR lower(ti.result) LIKE '%error%' OR lower(ti.result) LIKE '%exception%' THEN 'ERROR'
+    WHEN trim(COALESCE(ti.result, '')) = '' THEN 'EMPTY_RESULT'
+    ELSE 'OK'
+  END AS category,
+  COUNT(*) AS count
+FROM cst_tool_invocations ti
+JOIN cst_messages m ON m.id = ti.message_id
+JOIN cst_sessions s ON s.session_id = m.session_id
+WHERE datetime(s.created_at) >= datetime('now', '-14 days')
+  AND lower(ti.name) LIKE '%kusto%'
+GROUP BY category ORDER BY count DESC;
+```
 
 ### Phase 4: Deep-dive high-signal sessions
 
-Export 3–5 sessions with highest skill activity or error rates:
+Export 3–5 sessions across three buckets:
+1. **Highest skill activity** — sessions with the most skill loads
+2. **Highest error rates** — sessions with the most ADO CLI / Kusto failures
+3. **Likely missed invocations** — candidate sessions from Phase 2 where a skill should have loaded but didn't
 
 ```powershell
 copilot-session-tools export-markdown --session-id <ID> --output-dir <dir>
@@ -152,12 +220,16 @@ Output: concise recommendations memo, then concrete SKILL.md edits.
 
 ### Phase 6: Apply and commit
 
+> ⚠️ **Approval required.** Present the recommendations memo to the user and get explicit approval before editing any SKILL.md files. Get a second explicit approval before committing.
+
 - Edit SKILL.md files directly
 - Validate against skill-writer guidelines (frontmatter, description < 1024 chars, name matches dir)
 - Follow junction chains to find actual repo roots before committing
 - Commit in each relevant repo separately
 
 ## Prior instances
+
+These are the author's prior audit sessions. They may not exist in your session store, but the findings document the patterns this agent was designed to catch.
 
 | Session | Date | Findings |
 |---------|------|----------|
