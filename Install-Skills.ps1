@@ -168,7 +168,7 @@ if (Test-Path (Join-Path $PSScriptRoot '.git')) {
         New-Item -Path $GitHooksDir -ItemType Directory -Force | Out-Null
     }
 
-    $hookCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+    $hookCommand = "pwsh -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
     $hookMarker  = "# copilot-plugins Install-Skills hook"
 
     foreach ($hookName in @('post-checkout', 'post-merge')) {
@@ -189,6 +189,54 @@ if (Test-Path (Join-Path $PSScriptRoot '.git')) {
             Set-Content -Path $hookFile -Value $snippet -NoNewline
             Write-Host "[+] Created git hook: $hookName"
         }
+    }
+
+    # ── Validation hooks (pre-commit, pre-push) ────────────────────────────────
+    $ScriptsDir = Join-Path $PSScriptRoot 'scripts'
+
+    # Pre-commit: auto-bump marketplace versions for modified skills/agents
+    $preCommitMarker = "# copilot-plugins auto-bump hook"
+    $preCommitFile   = Join-Path $GitHooksDir 'pre-commit'
+    $preCommitCmd    = "pwsh -NoProfile -ExecutionPolicy Bypass -File `"$ScriptsDir\Auto-BumpVersion.ps1`""
+
+    if (Test-Path $preCommitFile) {
+        $content = Get-Content $preCommitFile -Raw -ErrorAction SilentlyContinue
+        if ($content -and $content.Contains($preCommitMarker)) {
+            Write-Host "[=] Git hook already configured: pre-commit"
+        } else {
+            $snippet = "`n$preCommitMarker`n$preCommitCmd`n"
+            Add-Content -Path $preCommitFile -Value $snippet -NoNewline
+            Write-Host "[+] Appended to existing git hook: pre-commit"
+        }
+    } else {
+        $snippet = "#!/bin/sh`n$preCommitMarker`n$preCommitCmd`n"
+        Set-Content -Path $preCommitFile -Value $snippet -NoNewline
+        Write-Host "[+] Created git hook: pre-commit"
+    }
+
+    # Pre-push: secret scan + marketplace validation
+    $prePushMarker = "# copilot-plugins validation hook"
+    $prePushFile   = Join-Path $GitHooksDir 'pre-push'
+    $prePushScript = @"
+#!/bin/sh
+$prePushMarker
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$ScriptsDir\Validate-Secrets.ps1"
+if [ `$? -ne 0 ]; then exit 1; fi
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$ScriptsDir\Validate-Marketplace.ps1"
+if [ `$? -ne 0 ]; then exit 1; fi
+"@
+
+    if (Test-Path $prePushFile) {
+        $content = Get-Content $prePushFile -Raw -ErrorAction SilentlyContinue
+        if ($content -and $content.Contains($prePushMarker)) {
+            Write-Host "[=] Git hook already configured: pre-push"
+        } else {
+            Add-Content -Path $prePushFile -Value "`n$prePushScript" -NoNewline
+            Write-Host "[+] Appended to existing git hook: pre-push"
+        }
+    } else {
+        Set-Content -Path $prePushFile -Value $prePushScript -NoNewline
+        Write-Host "[+] Created git hook: pre-push"
     }
 } else {
     Write-Host "[!] No .git directory found - skipping hook installation."

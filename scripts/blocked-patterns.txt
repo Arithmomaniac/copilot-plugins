@@ -1,0 +1,24 @@
+# Blocked patterns for pre-push secret/internal-content scanning
+# One regex pattern per line. Lines starting with # are comments.
+# Patterns are case-insensitive and matched against added lines in git diff.
+#
+# To test a pattern: pwsh -c "Select-String -Pattern 'YOUR_PATTERN' -Path file.txt"
+
+# ── Internal Microsoft platforms/tools ─────────────────────────────────────────
+CloudMine
+CoreIdentity
+ES-?Chat
+
+# ── Internal hostnames ─────────────────────────────────────────────────────────
+\.corp\.microsoft\.com
+\.redmond\.corp\.microsoft\.com
+
+# ── Internal Azure DevOps instances/orgs ───────────────────────────────────────
+mseng\.visualstudio\.com
+dev\.azure\.com/(msazure|AzureZurich)
+(msazure|AzureZurich)\.visualstudio\.com
+
+# ── Kusto cluster endpoints (leak internal cluster names) ──────────────────────
+\.kusto\.windows\.net
+
+# ── Add your own patterns below ────────────────────────────────────────────────
