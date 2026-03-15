@@ -20,6 +20,8 @@ The script is located at: `{USER_HOME}\.claude\skills\azsafe\azsafe.ps1`
 
 **CRITICAL: You MUST inline the full literal path!** PowerShell doesn't expand `$HOME` or `~` in command paths. Before invoking azsafe.ps1, determine the user's home directory (e.g., via `$HOME` or `$env:USERPROFILE`) and construct the full literal path with that value inlined.
 
+> ⚠️ **If you loaded `ado-cli`:** That skill's examples previously used `$HOME\...` paths. Ignore that pattern — always use the fully resolved literal path shown below. The `$HOME\...` form silently breaks in the Copilot CLI shell wrapper.
+
 **PowerShell rules:**
 1. **Inline the resolved home path** - e.g., if `$HOME` is `C:\Users\jsmith`, use `C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1`
 2. **Use `--output` not `-o`** - the short form conflicts with PowerShell's `-OutVariable`
