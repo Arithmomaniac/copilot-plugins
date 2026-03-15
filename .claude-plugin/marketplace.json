@@ -120,6 +120,16 @@
       "category": "developer-tools",
       "keywords": ["audit", "skills", "effectiveness", "triggers", "session-history"],
       "agents": ["./agents/skill-audit"]
+    },
+    {
+      "name": "cwd-auto",
+      "description": "Copilot CLI extension that auto-detects when a user's request implies working in a different directory and offers Always/Never session-scoped permission to switch via /cwd. Uses the Repository Index to map friendly names to paths.",
+      "source": "./",
+      "strict": false,
+      "version": "1.0.0",
+      "category": "productivity",
+      "keywords": ["cwd", "directory", "navigation", "auto-switch", "extension"],
+      "extensions": ["./extensions/cwd-auto"]
     }
   ]
 }
