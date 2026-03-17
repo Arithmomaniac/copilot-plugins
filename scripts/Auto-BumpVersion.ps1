@@ -108,7 +108,7 @@ foreach ($plugin in $manifest.plugins) {
     $isAffected = $false
 
     # Check if any staged skill/agent path matches this plugin
-    if ($plugin.skills) {
+    if ($plugin.PSObject.Properties['skills']) {
         foreach ($skillPath in $plugin.skills) {
             if ($affectedPaths.ContainsKey($skillPath)) {
                 $isAffected = $true
@@ -116,7 +116,7 @@ foreach ($plugin in $manifest.plugins) {
             }
         }
     }
-    if (-not $isAffected -and $plugin.agents) {
+    if (-not $isAffected -and $plugin.PSObject.Properties['agents']) {
         foreach ($agentPath in $plugin.agents) {
             if ($affectedPaths.ContainsKey($agentPath)) {
                 $isAffected = $true

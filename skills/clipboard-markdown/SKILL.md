@@ -18,9 +18,22 @@ Copy text to the system clipboard formatted as plain markdown, block-quoted mark
 
 ### 1. Determine format
 
-- **Plain markdown** (default): Use when user says "copy to clipboard", "copy as markdown", or doesn't specify quoting.
-- **Block-quoted markdown**: Use when user says "quoted", "quote box", "block quote", or explicitly asks for `>` prefixing.
-- **Rich HTML**: Use when user says "rich", "HTML", "formatted", "rich clipboard", "rich paste", or wants content to paste with visual formatting into Teams/Outlook/Word/etc. This puts both plain-text markdown AND rendered HTML on the clipboard so the target app picks the richest format it supports.
+There are two independent axes — **quoting** and **clipboard format** — that combine:
+
+| | Plain clipboard | Rich HTML clipboard |
+|---|---|---|
+| **Unquoted** | `Set-Clipboard` | `copy-rich-clipboard.py` |
+| **Quoted** (🤖 + blockquote) | `Set-Clipboard` | `copy-rich-clipboard.py` |
+
+**Quoting** (block-quoted with robot emoji):
+- Use when user says "quoted", "quote", "quote box", "block quote", or asks for `>` prefixing.
+- The 🤖 emoji goes on its own line **outside** the blockquote. All content lines are prefixed with `> `.
+
+**Clipboard format:**
+- **Plain markdown** (default): Use `Set-Clipboard`. User says "copy to clipboard", "copy as markdown", or doesn't specify rich/HTML.
+- **Rich HTML**: Use `copy-rich-clipboard.py`. User says "rich", "HTML", "formatted", "rich paste", or wants visual formatting in Teams/Outlook/Word. This puts both plain-text markdown AND rendered HTML on the clipboard.
+
+These combine freely: "copy as quoted markdown" = quoted + plain clipboard. "Copy with quote as HTML" = quoted + rich HTML clipboard.
 
 ### 2. Compose the content
 
@@ -72,9 +85,9 @@ The script converts markdown to HTML, then places both plain text (markdown) and
 
 Always print the character count so the user knows it worked.
 
-## Block-quoted format
+## Block-quoted format (robot + blockquote)
 
-The robot emoji line comes first **unquoted**, then subsequent lines are block-quoted with `> `:
+**CRITICAL:** The 🤖 emoji goes on its own line BEFORE the blockquote — it is NOT inside the `>` block. This is so it renders as a standalone line above the quote box in Teams/Outlook.
 
 ```
 🤖
@@ -90,8 +103,11 @@ The robot emoji line comes first **unquoted**, then subsequent lines are block-q
 > ```
 ```
 
+This applies to BOTH plain and rich HTML clipboard modes. When using the `copy-rich-clipboard.py` script, the robot renders as `<p>🤖</p>` outside the `<blockquote>`.
+
 ## Common mistakes to avoid
 
+- **Don't put 🤖 inside the `>` block** — it must be on its own unquoted line above the blockquote.
 - **Don't use `$"..."` interpolation** in the here-string — use `@' '@` (single-quoted here-string) to avoid variable expansion.
 - **Don't escape backticks** inside `@' '@` — they're literal.
 - **Don't add conversational text** before or after the content inside the clipboard payload.

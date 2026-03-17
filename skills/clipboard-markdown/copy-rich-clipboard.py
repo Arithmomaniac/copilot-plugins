@@ -8,8 +8,41 @@ plain text (markdown) and CF_HTML on the Windows clipboard.
 
 import sys
 import os
+import re
 import subprocess
 import tempfile
+
+
+def preprocess_markdown(md: str) -> str:
+    """Normalize markdown whitespace for reliable HTML conversion.
+
+    Fixes common issues where the Python markdown library needs blank lines
+    that authors typically omit:
+    - Insert blank line before list items inside blockquotes
+    - Insert blank line before list items after paragraphs
+    - Normalize line endings
+    """
+    md = md.replace("\r\n", "\n")
+
+    lines = md.split("\n")
+    result = []
+    for i, line in enumerate(lines):
+        stripped = line.rstrip()
+        if i > 0:
+            prev = result[-1].rstrip()
+            # Inside a blockquote: previous line is "> text" (not blank, not a list),
+            # current line is "> - item" or "> * item" or "> 1. item"
+            if re.match(r"^(\s*>\s+)[-*]\s", stripped) or re.match(r"^(\s*>\s+)\d+\.\s", stripped):
+                if prev and not re.match(r"^\s*>\s*$", prev) and not re.match(r"^\s*>\s+[-*]\s", prev) and not re.match(r"^\s*>\s+\d+\.\s", prev):
+                    # Extract the blockquote prefix (e.g., "> ")
+                    m = re.match(r"^(\s*>)\s", stripped)
+                    result.append(m.group(1) if m else ">")
+            # Outside a blockquote: previous line is text, current is list item
+            elif re.match(r"^\s*[-*]\s", stripped) or re.match(r"^\s*\d+\.\s", stripped):
+                if prev and not re.match(r"^\s*[-*]\s", prev) and not re.match(r"^\s*\d+\.\s", prev) and not prev == "":
+                    result.append("")
+        result.append(line)
+    return "\n".join(result)
 
 
 def build_cf_html(html_body: str) -> str:
@@ -49,6 +82,8 @@ def main():
     md_path = sys.argv[1]
     with open(md_path, "r", encoding="utf-8-sig") as f:
         md_text = f.read()
+
+    md_text = preprocess_markdown(md_text)
 
     # Convert markdown to HTML
     try:
