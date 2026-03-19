@@ -120,6 +120,16 @@
       "category": "developer-tools",
       "keywords": ["audit", "skills", "effectiveness", "triggers", "session-history"],
       "agents": ["./agents/skill-audit"]
+    },
+    {
+      "name": "pipeline-euler-diagram",
+      "description": "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages.",
+      "source": "./",
+      "strict": false,
+      "version": "1.0.2",
+      "category": "developer-tools",
+      "keywords": ["pipeline", "diagram", "euler", "svg", "visualization", "architecture", "code-structure"],
+      "agents": ["./agents/pipeline-euler-diagram"]
     }
   ]
 }
