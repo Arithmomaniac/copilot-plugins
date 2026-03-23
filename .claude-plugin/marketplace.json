@@ -1,135 +1,262 @@
 {
-  "name": "copilot-plugins",
-  "owner": {
-    "name": "Arithmomaniac"
-  },
-  "metadata": {
-    "description": "Copilot Plugin Marketplace — agent skills for Git workflows, productivity, and developer tools",
-    "version": "1.0.0",
-    "homepage": "https://github.com/Arithmomaniac/copilot-plugins"
-  },
-  "plugins": [
-    {
-      "name": "clipboard-markdown",
-      "description": "Copy analysis, summaries, or feedback to the clipboard as markdown or block-quoted markdown. Use when the user says 'copy to clipboard', 'copy as markdown', 'copy as quoted markdown', or asks to prepare text for pasting into PRs, docs, or chat.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.1",
-      "category": "productivity",
-      "keywords": ["clipboard", "markdown", "copy", "paste", "pr", "docs"],
-      "skills": ["./skills/clipboard-markdown"]
+    "name": "copilot-plugins",
+    "owner": {
+        "name": "Arithmomaniac"
     },
-    {
-      "name": "create-worktree",
-      "description": "Create a new git branch and worktree from context. Use when starting work on a task — given a freetext description, auto-selects branch prefix (feature/bugfix/experiment) based on context, creates branch, and sets up worktree. Triggers on 'create worktree', 'new branch for', 'start work on'.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["git", "worktree", "branch", "workflow"],
-      "skills": ["./skills/create-worktree"]
+    "metadata": {
+        "description": "Copilot Plugin Marketplace — agent skills for Git workflows, productivity, and developer tools",
+        "version": "1.0.0",
+        "homepage": "https://github.com/Arithmomaniac/copilot-plugins"
     },
-    {
-      "name": "git-branch-cleanup",
-      "description": "Clean up stale git branches by identifying and removing local branches tracking deleted remotes, branches with completed/abandoned PRs, and stale branches. Includes worktree management. Use when the user says 'clean up branches', 'branch cleanup', 'prune branches', 'delete old branches', or 'remove stale branches'.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["git", "branches", "cleanup", "prune", "worktree"],
-      "skills": ["./skills/git-branch-cleanup"]
-    },
-    {
-      "name": "goral-hagra",
-      "description": "Perform the Goral HaGra — randomly select a verse from the Torah or full Tanakh for guidance on a decision. Two modes: regular Goral HaGra (Torah only, 5 Books of Moses) and extended Goral HaGra (all of Tanakh). Uses Sefaria API for Hebrew text, English translation, and rabbinic commentary. Triggers on 'goral hagra', 'ask the gra', 'ask the Vilna Gaon', 'divine lot', 'random verse guidance'.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "utilities",
-      "keywords": ["torah", "tanakh", "goral", "sefaria", "guidance", "jewish"],
-      "skills": ["./skills/goral-hagra"]
-    },
-    {
-      "name": "openspec-workflow",
-      "description": "Reference instructions for the OpenSpec spec-driven development workflow. Orchestrates multi-model review panel and generates proposal/specs/design/tasks artifacts. Not invoked directly — use the openspec-planner agent via /agent to run this workflow.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["spec", "design", "workflow", "review", "planning"],
-      "skills": ["./skills/openspec-workflow"],
-      "agents": ["./agents/openspec-workflow"]
-    },
-    {
-      "name": "skill-writer",
-      "description": "Guide users through creating Agent Skills for Claude Code. Use when the user wants to create, write, author, or design a new Skill, or needs help with SKILL.md files, frontmatter, or skill structure.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["skill", "authoring", "SKILL.md", "frontmatter", "claude-code"],
-      "skills": ["./skills/skill-writer"]
-    },
-    {
-      "name": "skills-discovery",
-      "description": "Search for and install Agent Skills from the claude-plugins.dev registry. Before starting work, ask 'might a skill exist that handles this better than my base knowledge?' Search proactively for specialized capabilities. Also use when users explicitly ask to find, install, or manage skills.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["skills", "registry", "search", "install", "marketplace", "discovery"],
-      "skills": ["./skills/skills-discovery"]
-    },
-    {
-      "name": "azsafe",
-      "description": "Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["azure", "cli", "safety", "read-only", "proxy"],
-      "skills": ["./skills/azsafe"]
-    },
-    {
-      "name": "fleet-orchestrated-pipeline",
-      "description": "Decompose large work into a DAG and execute across parallel worktrees with fleet agents, multi-model code review, auto-applied fixes, and streaming manual review. Integrates with plan mode — plan first, then switch to fleet orchestrator. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to split into parallel PR-sized tasks.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["fleet", "worktree", "parallel", "dag", "pipeline", "code-review", "swarm"],
-      "skills": ["./skills/fleet-orchestrated-pipeline"],
-      "agents": ["./agents/fleet-orchestrated-pipeline"]
-    },
-    {
-      "name": "design-doc-writer",
-      "description": "Guide writing design documents through a staged workflow — problem validation, design skeleton, decision resolution, editorial hardening. Prevents premature expansion and structural churn. Use when the user says 'write a design doc', 'design document', 'create a design proposal', 'start a design', 'new design doc', 'RFC', 'tech spec', or 'document a design decision'.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["design", "document", "RFC", "tech-spec", "architecture", "decisions"],
-      "skills": ["./skills/design-doc-writer"]
-    },
-    {
-      "name": "skill-audit",
-      "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.0",
-      "category": "developer-tools",
-      "keywords": ["audit", "skills", "effectiveness", "triggers", "session-history"],
-      "agents": ["./agents/skill-audit"]
-    },
-    {
-      "name": "pipeline-euler-diagram",
-      "description": "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages.",
-      "source": "./",
-      "strict": false,
-      "version": "1.0.2",
-      "category": "developer-tools",
-      "keywords": ["pipeline", "diagram", "euler", "svg", "visualization", "architecture", "code-structure"],
-      "agents": ["./agents/pipeline-euler-diagram"]
-    }
-  ]
+    "plugins": [
+        {
+            "name": "clipboard-markdown",
+            "description": "Copy analysis, summaries, or feedback to the clipboard as markdown or block-quoted markdown. Use when the user says 'copy to clipboard', 'copy as markdown', 'copy as quoted markdown', or asks to prepare text for pasting into PRs, docs, or chat.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.1",
+            "category": "productivity",
+            "keywords": [
+                "clipboard",
+                "markdown",
+                "copy",
+                "paste",
+                "pr",
+                "docs"
+            ],
+            "skills": [
+                "./skills/clipboard-markdown"
+            ]
+        },
+        {
+            "name": "create-worktree",
+            "description": "Create a new git branch and worktree from context. Use when starting work on a task — given a freetext description, auto-selects branch prefix (feature/bugfix/experiment) based on context, creates branch, and sets up worktree. Triggers on 'create worktree', 'new branch for', 'start work on'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "git",
+                "worktree",
+                "branch",
+                "workflow"
+            ],
+            "skills": [
+                "./skills/create-worktree"
+            ]
+        },
+        {
+            "name": "git-branch-cleanup",
+            "description": "Clean up stale git branches by identifying and removing local branches tracking deleted remotes, branches with completed/abandoned PRs, and stale branches. Includes worktree management. Use when the user says 'clean up branches', 'branch cleanup', 'prune branches', 'delete old branches', or 'remove stale branches'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "git",
+                "branches",
+                "cleanup",
+                "prune",
+                "worktree"
+            ],
+            "skills": [
+                "./skills/git-branch-cleanup"
+            ]
+        },
+        {
+            "name": "goral-hagra",
+            "description": "Perform the Goral HaGra — randomly select a verse from the Torah or full Tanakh for guidance on a decision. Two modes: regular Goral HaGra (Torah only, 5 Books of Moses) and extended Goral HaGra (all of Tanakh). Uses Sefaria API for Hebrew text, English translation, and rabbinic commentary. Triggers on 'goral hagra', 'ask the gra', 'ask the Vilna Gaon', 'divine lot', 'random verse guidance'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "utilities",
+            "keywords": [
+                "torah",
+                "tanakh",
+                "goral",
+                "sefaria",
+                "guidance",
+                "jewish"
+            ],
+            "skills": [
+                "./skills/goral-hagra"
+            ]
+        },
+        {
+            "name": "openspec-workflow",
+            "description": "Reference instructions for the OpenSpec spec-driven development workflow. Orchestrates multi-model review panel and generates proposal/specs/design/tasks artifacts. Not invoked directly — use the openspec-planner agent via /agent to run this workflow.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "spec",
+                "design",
+                "workflow",
+                "review",
+                "planning"
+            ],
+            "skills": [
+                "./skills/openspec-workflow"
+            ],
+            "agents": [
+                "./agents/openspec-workflow"
+            ]
+        },
+        {
+            "name": "skill-writer",
+            "description": "Guide users through creating Agent Skills for Claude Code. Use when the user wants to create, write, author, or design a new Skill, or needs help with SKILL.md files, frontmatter, or skill structure.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "skill",
+                "authoring",
+                "SKILL.md",
+                "frontmatter",
+                "claude-code"
+            ],
+            "skills": [
+                "./skills/skill-writer"
+            ]
+        },
+        {
+            "name": "skills-discovery",
+            "description": "Search for and install Agent Skills from the claude-plugins.dev registry. Before starting work, ask 'might a skill exist that handles this better than my base knowledge?' Search proactively for specialized capabilities. Also use when users explicitly ask to find, install, or manage skills.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "skills",
+                "registry",
+                "search",
+                "install",
+                "marketplace",
+                "discovery"
+            ],
+            "skills": [
+                "./skills/skills-discovery"
+            ]
+        },
+        {
+            "name": "azsafe",
+            "description": "Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "azure",
+                "cli",
+                "safety",
+                "read-only",
+                "proxy"
+            ],
+            "skills": [
+                "./skills/azsafe"
+            ]
+        },
+        {
+            "name": "fleet-orchestrated-pipeline",
+            "description": "Decompose large work into a DAG and execute across parallel worktrees with fleet agents, multi-model code review, auto-applied fixes, and streaming manual review. Integrates with plan mode — plan first, then switch to fleet orchestrator. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to split into parallel PR-sized tasks.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "fleet",
+                "worktree",
+                "parallel",
+                "dag",
+                "pipeline",
+                "code-review",
+                "swarm"
+            ],
+            "skills": [
+                "./skills/fleet-orchestrated-pipeline"
+            ],
+            "agents": [
+                "./agents/fleet-orchestrated-pipeline"
+            ]
+        },
+        {
+            "name": "design-doc-writer",
+            "description": "Guide writing design documents through a staged workflow with quality gates. Agent orchestrates 4 stages (problem validation, design skeleton, decision resolution, editorial hardening). Companion skill provides reference formats and checklists. Use /agent design-doc-writer to start.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.1",
+            "category": "developer-tools",
+            "keywords": [
+                "design",
+                "document",
+                "RFC",
+                "tech-spec",
+                "architecture",
+                "decisions"
+            ],
+            "skills": [
+                "./skills/design-doc-writer"
+            ],
+            "agents": [
+                "./agents/design-doc-writer"
+            ]
+        },
+        {
+            "name": "skill-audit",
+            "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "audit",
+                "skills",
+                "effectiveness",
+                "triggers",
+                "session-history"
+            ],
+            "agents": [
+                "./agents/skill-audit"
+            ]
+        },
+        {
+            "name": "pipeline-euler-diagram",
+            "description": "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.2",
+            "category": "developer-tools",
+            "keywords": [
+                "pipeline",
+                "diagram",
+                "euler",
+                "svg",
+                "visualization",
+                "architecture",
+                "code-structure"
+            ],
+            "agents": [
+                "./agents/pipeline-euler-diagram"
+            ]
+        },
+        {
+            "name": "smart-merge",
+            "description": "Merge from a branch while preserving feature intent, running full validation across 13 tracked steps. Use /agent smart-merge with the source branch.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "git",
+                "merge",
+                "conflict-resolution",
+                "feature-preservation"
+            ],
+            "agents": [
+                "./agents/smart-merge"
+            ]
+        }
+    ]
 }
