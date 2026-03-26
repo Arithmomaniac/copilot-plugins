@@ -2,8 +2,6 @@
 name: "pipeline-euler-diagram"
 description: "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages."
 tools: ["execute", "read", "edit", "search", "agent", "web/fetch"]
-model: Claude Sonnet 4.6
-argument-hint: "Branch, worktree path, or code directory to analyze (e.g. 'personal/shmiro/autoseg-refactor' or 'C:\\_SRC\\ZTS\\src\\python')"
 ---
 
 # Pipeline Euler Diagram Agent

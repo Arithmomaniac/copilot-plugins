@@ -2,8 +2,6 @@
 name: "fleet-orchestrator"
 description: "Orchestrate large work decomposition across parallel worktrees with fleet agents, multi-model review, and auto-applied fixes. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to decompose into a DAG and execute."
 tools: ["execute/getTerminalOutput", "execute/runInTerminal", "search", "web/fetch", "agent", "todo"]
-model: Claude Sonnet 4.6
-argument-hint: Describe the work to decompose, or provide an ADO work item link
 ---
 
 # Fleet Orchestrator
