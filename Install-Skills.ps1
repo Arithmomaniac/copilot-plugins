@@ -98,10 +98,11 @@ foreach ($item in $allItems) {
 }
 
 # ── Install agent files (.agent.md) ────────────────────────────────────────────
-# Copy .agent.md files directly into ~/.claude/agents/ (flat).
+# Hardlink .agent.md files into ~/.claude/agents/ (flat).
 # Directory junctions don't work — the CLI only discovers .agent.md files at
 # the top level of the agents directory, not recursively.
-# File symlinks require admin on Windows, so we copy instead.
+# File symlinks require admin on Windows, but hardlinks don't and keep files
+# in sync automatically (same physical file on disk).
 if (Test-Path $AgentsSource) {
     if (-not (Test-Path $AgentsDir)) {
         New-Item -Path $AgentsDir -ItemType Directory -Force | Out-Null
@@ -125,7 +126,7 @@ if (Test-Path $AgentsSource) {
         }
     }
 
-    # Find all .agent.md files recursively and copy to agents dir
+    # Find all .agent.md files recursively and hardlink to agents dir
     $sourceAgentFiles = Get-ChildItem -Path $AgentsSource -Filter '*.agent.md' -Recurse -File
     $installedNames = @()
 
@@ -134,16 +135,21 @@ if (Test-Path $AgentsSource) {
         $installedNames += $agentFile.Name
 
         if (Test-Path $destPath) {
-            $srcHash = (Get-FileHash $agentFile.FullName -Algorithm MD5).Hash
-            $dstHash = (Get-FileHash $destPath -Algorithm MD5).Hash
-            if ($srcHash -eq $dstHash) {
-                Write-Host "[=] Skipped agent (already current): $($agentFile.Name)"
+            # Check if already a hardlink to the same file (same FileID)
+            $srcId = (fsutil file queryfileid $agentFile.FullName 2>$null) -replace '.*:\s*', ''
+            $dstId = (fsutil file queryfileid $destPath 2>$null) -replace '.*:\s*', ''
+            if ($srcId -and $dstId -and $srcId -eq $dstId) {
+                Write-Host "[=] Skipped agent (already hardlinked): $($agentFile.Name)"
                 continue
             }
+
+            # Not a hardlink — replace with one (remove existing copy first)
+            Remove-Item -Path $destPath -Force
+            Write-Host "[-] Removed stale agent copy: $($agentFile.Name)"
         }
 
-        Copy-Item -Path $agentFile.FullName -Destination $destPath -Force
-        Write-Host "[+] Installed agent: $($agentFile.Name) (from $($agentFile.Directory.Name)/)"
+        New-Item -Path $destPath -ItemType HardLink -Target $agentFile.FullName | Out-Null
+        Write-Host "[+] Hardlinked agent: $($agentFile.Name) -> $($agentFile.Directory.Name)/"
     }
 
     # Clean stale agent copies: files in agents dir that match a source pattern

@@ -6,7 +6,6 @@ description: >-
   a design proposal, start a design, new design doc, RFC, tech spec, or asks to
   restructure/improve/review an existing design doc.
 tools: ["*"]
-argument-hint: Description of the design problem, or path to existing document to restructure
 ---
 
 # Design Doc Writer

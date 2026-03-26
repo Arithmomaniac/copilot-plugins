@@ -14,7 +14,7 @@
             "description": "Copy analysis, summaries, or feedback to the clipboard as markdown or block-quoted markdown. Use when the user says 'copy to clipboard', 'copy as markdown', 'copy as quoted markdown', or asks to prepare text for pasting into PRs, docs, or chat.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "productivity",
             "keywords": [
                 "clipboard",
@@ -163,7 +163,7 @@
             "description": "Decompose large work into a DAG and execute across parallel worktrees with fleet agents, multi-model code review, auto-applied fixes, and streaming manual review. Integrates with plan mode — plan first, then switch to fleet orchestrator. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to split into parallel PR-sized tasks.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "fleet",
@@ -186,7 +186,7 @@
             "description": "Guide writing design documents through a staged workflow with quality gates. Agent orchestrates 4 stages (problem validation, design skeleton, decision resolution, editorial hardening). Companion skill provides reference formats and checklists. Use /agent design-doc-writer to start.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "design",
@@ -208,7 +208,7 @@
             "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "audit",
@@ -226,7 +226,7 @@
             "description": "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.3",
             "category": "developer-tools",
             "keywords": [
                 "pipeline",
@@ -246,7 +246,7 @@
             "description": "Merge from a branch while preserving feature intent, running full validation across 13 tracked steps. Use /agent smart-merge with the source branch.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "git",

@@ -85,17 +85,36 @@ def main():
 
     md_text = preprocess_markdown(md_text)
 
-    # Convert markdown to HTML
+    # Convert markdown to HTML using cmarkgfm (GitHub-flavored, CommonMark-compliant)
+    # which correctly handles fenced code blocks inside blockquotes.
+    # Falls back to Python-Markdown if cmarkgfm is not installed.
     try:
-        import markdown
-    except ImportError:
-        os.system(f"{sys.executable} -m pip install markdown -q")
-        import markdown
+        import cmarkgfm
 
-    html_body = markdown.markdown(
-        md_text,
-        extensions=["tables", "fenced_code", "sane_lists"],
+        html_body = cmarkgfm.github_flavored_markdown_to_html(md_text)
+    except ImportError:
+        try:
+            import markdown
+        except ImportError:
+            os.system(f"{sys.executable} -m pip install markdown -q")
+            import markdown
+
+        html_body = markdown.markdown(
+            md_text,
+            extensions=["tables", "fenced_code", "sane_lists"],
+        )
+        # Strip language-* class from <code> inside <pre> (not used by rich-text editors)
+        html_body = re.sub(r'<code class="language-\w+">', "<code>", html_body)
+
+    # Add inline styles for code blocks so they render properly in
+    # rich-text targets (Teams, Outlook) that don't have CSS stylesheets.
+    html_body = html_body.replace(
+        "<pre>",
+        '<pre style="background-color:#f4f4f4; padding:8px 12px; border-radius:4px;'
+        " overflow-x:auto; font-family:Consolas,'Courier New',monospace; font-size:13px;\">",
     )
+    # cmarkgfm uses <pre lang="xxx"> instead of class; strip it for rich-text targets
+    html_body = re.sub(r'<pre lang="\w+"', "<pre", html_body)
 
     cf_html = build_cf_html(html_body)
 

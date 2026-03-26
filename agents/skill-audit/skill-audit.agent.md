@@ -2,8 +2,6 @@
 name: skill-audit
 description: "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'."
 tools: ["execute", "read", "edit", "search", "agent", "todo"]
-model: Claude Sonnet 4.6
-argument-hint: Lookback window (e.g. "14 days") or specific skills to focus on
 ---
 
 # Skill Audit Agent
