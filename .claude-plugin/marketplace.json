@@ -204,6 +204,24 @@
             ]
         },
         {
+            "name": "markdown-to-whatsapp",
+            "description": "Convert markdown content to WhatsApp formatting and copy to clipboard. Use when the user says 'copy for whatsapp', 'whatsapp format', 'format for whatsapp', 'wa format', 'send via whatsapp', 'paste in whatsapp', or 'markdown to whatsapp'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "productivity",
+            "keywords": [
+                "whatsapp",
+                "markdown",
+                "clipboard",
+                "formatting",
+                "convert"
+            ],
+            "skills": [
+                "./skills/markdown-to-whatsapp"
+            ]
+        },
+        {
             "name": "skill-audit",
             "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
             "source": "./",
@@ -243,10 +261,10 @@
         },
         {
             "name": "smart-merge",
-            "description": "Merge from a branch while preserving feature intent, running full validation across 13 tracked steps. Use /agent smart-merge with the source branch.",
+            "description": "Merge from a branch while preserving feature intent, with adaptive validation scaled to merge complexity. Assesses scope after merge to skip unnecessary steps (with user confirmation). Use /agent smart-merge with the source branch.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.1.0",
             "category": "developer-tools",
             "keywords": [
                 "git",
