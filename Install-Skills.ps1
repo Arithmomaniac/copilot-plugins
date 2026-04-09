@@ -1,16 +1,17 @@
 ﻿<#
 .SYNOPSIS
     Installs agent skills and agents by creating junctions/symlinks from the repo
-    into $env:USERPROFILE\.claude\skills and $env:USERPROFILE\.claude\agents.
+    into $env:USERPROFILE\.copilot\skills and $env:USERPROFILE\.copilot\agents.
     Idempotent - safe to run repeatedly.
 
 .DESCRIPTION
-    - Creates junctions for each skill subdirectory → ~/.claude/skills/
-    - Copies .agent.md files from agents/ subdirs → ~/.claude/agents/ (flat)
+    - Creates junctions for each skill subdirectory → ~/.copilot/skills/
+    - Copies .agent.md files from agents/ subdirs → ~/.copilot/agents/ (flat)
       (Directory junctions don't work for agents — the CLI only discovers
        .agent.md files at the top level, not recursively. File symlinks
        require admin on Windows, so we copy instead.)
     - Cleans stale junctions/copies that pointed into this repo but whose source is gone
+    - Migrates old ~/.claude/ junctions pointing to this repo (one-time)
     - Installs post-checkout and post-merge git hooks to re-run this script automatically
 #>
 [CmdletBinding()]
@@ -22,8 +23,8 @@ $ErrorActionPreference = 'Stop'
 # ── Paths ──────────────────────────────────────────────────────────────────────
 $SkillsSource  = Join-Path $PSScriptRoot 'skills'
 $AgentsSource  = Join-Path $PSScriptRoot 'agents'
-$TargetDir     = Join-Path $env:USERPROFILE '.claude\skills'
-$AgentsDir     = Join-Path $env:USERPROFILE '.claude\agents'
+$TargetDir     = Join-Path $env:USERPROFILE '.copilot\skills'
+$AgentsDir     = Join-Path $env:USERPROFILE '.copilot\agents'
 $GitHooksDir   = Join-Path $PSScriptRoot '.git\hooks'
 $ScriptPath   = $MyInvocation.MyCommand.Path
 
@@ -42,6 +43,23 @@ if (Test-Path $TargetDir) {
 } else {
     New-Item -Path $TargetDir -ItemType Directory -Force | Out-Null
     Write-Host "[+] Created target directory: $TargetDir"
+}
+
+# ── Migrate: clean old ~/.claude/skills/ junctions pointing to this repo ───────
+$OldSkillsDir = Join-Path $env:USERPROFILE '.claude\skills'
+if (Test-Path $OldSkillsDir) {
+    $normalizedSkillsSource = $SkillsSource.TrimEnd('\') + '\'
+    $oldItems = Get-ChildItem -Path $OldSkillsDir -Force -ErrorAction SilentlyContinue
+    foreach ($oldItem in $oldItems) {
+        if (-not ($oldItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+        $oldTarget = $oldItem.Target
+        if ($oldTarget -is [array]) { $oldTarget = $oldTarget[0] }
+        if (-not $oldTarget) { continue }
+        if ($oldTarget.StartsWith($normalizedSkillsSource, [StringComparison]::OrdinalIgnoreCase)) {
+            $oldItem.Delete()
+            Write-Host "[migrate] Removed old .claude junction: $($oldItem.Name) -> $oldTarget"
+        }
+    }
 }
 
 # ── Create / update junctions ──────────────────────────────────────────────────
@@ -98,7 +116,7 @@ foreach ($item in $allItems) {
 }
 
 # ── Install agent files (.agent.md) ────────────────────────────────────────────
-# Hardlink .agent.md files into ~/.claude/agents/ (flat).
+# Hardlink .agent.md files into ~/.copilot/agents/ (flat).
 # Directory junctions don't work — the CLI only discovers .agent.md files at
 # the top level of the agents directory, not recursively.
 # File symlinks require admin on Windows, but hardlinks don't and keep files
@@ -107,6 +125,18 @@ if (Test-Path $AgentsSource) {
     if (-not (Test-Path $AgentsDir)) {
         New-Item -Path $AgentsDir -ItemType Directory -Force | Out-Null
         Write-Host "[+] Created agents directory: $AgentsDir"
+    }
+
+    # Migrate: clean old ~/.claude/agents/ hardlinks from this repo
+    $OldAgentsDir = Join-Path $env:USERPROFILE '.claude\agents'
+    if (Test-Path $OldAgentsDir) {
+        $sourceAgentNames = (Get-ChildItem -Path $AgentsSource -Filter '*.agent.md' -Recurse -File).Name
+        foreach ($oldAgent in (Get-ChildItem -Path $OldAgentsDir -Filter '*.agent.md' -File -ErrorAction SilentlyContinue)) {
+            if ($oldAgent.Name -in $sourceAgentNames) {
+                Remove-Item -Path $oldAgent.FullName -Force
+                Write-Host "[migrate] Removed old .claude agent: $($oldAgent.Name)"
+            }
+        }
     }
 
     # Clean up old directory junctions from previous install approach

@@ -23,7 +23,7 @@ Activate this skill when the user says any of the following (case-insensitive):
 
 - **Regular Goral HaGra**: Torah only (Genesis through Deuteronomy). Use this when the user says "Torah", "Chumash", or "regular goral".
 - **Extended Goral HaGra**: Full Tanakh (Torah + Nevi'im + Ketuvim). Use this when the user says "Tanakh", "extended goral", "full Tanakh", "all of Tanakh", "Nevi'im", or "Ketuvim".
-- **Default mode**: If the user does not specify a mode, read `defaultMode` from `~/.claude/skills/goral-hagra/config.json`. The value is either `"torah"` or `"tanakh"`. If the config does not yet exist or lacks `defaultMode`, the user will be asked during first-use setup (see Step 3).
+- **Default mode**: If the user does not specify a mode, read `defaultMode` from `~/.copilot/skills/goral-hagra/config.json`. The value is either `"torah"` or `"tanakh"`. If the config does not yet exist or lacks `defaultMode`, the user will be asked during first-use setup (see Step 3).
 
 If the user provides context about their decision or question, remember it — you will need it for the Responsum step.
 
@@ -32,7 +32,7 @@ If the user provides context about their decision or question, remember it — y
 Run the PowerShell script to get a random verse:
 
 ```powershell
-~/.claude/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action random-verse -Mode <torah|tanakh>
+~/.copilot/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action random-verse -Mode <torah|tanakh>
 ```
 
 - Use `-Mode torah` for the regular Goral HaGra.
@@ -42,18 +42,18 @@ The script returns a verse reference (e.g., `Genesis 32:11` or `Psalms 27:4`). C
 
 ## 3. First-Use Settings Setup
 
-Check if `~/.claude/skills/goral-hagra/config.json` exists and contains both `preferredTranslation` and `defaultMode`.
+Check if `~/.copilot/skills/goral-hagra/config.json` exists and contains both `preferredTranslation` and `defaultMode`.
 
 ### If config does NOT exist or is missing either field (first use):
 
 1. Run the script to fetch available translations for this verse:
    ```powershell
-   ~/.claude/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action get-translations -Reference "<the reference>"
+   ~/.copilot/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action get-translations -Reference "<the reference>"
    ```
 2. Ask the user **two questions** (one at a time):
    - **Translation**: Present the list of available English translations and ask them to choose one.
    - **Default mode**: Ask whether they prefer **Torah only** (regular Goral HaGra) or **Full Tanakh** (extended Goral HaGra) as their default when they don't specify a mode.
-3. Save both choices to `~/.claude/skills/goral-hagra/config.json`:
+3. Save both choices to `~/.copilot/skills/goral-hagra/config.json`:
    ```json
    {
      "preferredTranslation": "The Koren Jerusalem Bible",
@@ -71,7 +71,7 @@ Read the values and use them. Do not ask the user again.
 Run the script with the reference and preferred translation:
 
 ```powershell
-~/.claude/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action get-verse-data -Reference "<ref>" -Translation "<preferred translation>"
+~/.copilot/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action get-verse-data -Reference "<ref>" -Translation "<preferred translation>"
 ```
 
 This returns a clean JSON object with:
@@ -87,7 +87,7 @@ No further parsing is needed — use the fields directly.
 If the verse has clear thematic content (e.g., mentions a specific topic like trust, fear, justice, love), optionally run a related search to deepen your understanding:
 
 ```powershell
-~/.claude/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action search-related -Query "<key phrase from the verse>" -Filters "Tanakh","Midrash","Talmud" -Size 3
+~/.copilot/skills/goral-hagra/scripts/Get-GoralHaGra.ps1 -Action search-related -Query "<key phrase from the verse>" -Filters "Tanakh","Midrash","Talmud" -Size 3
 ```
 
 Use the search results to enrich your contextual understanding and inform the Responsum step. Do **NOT** present raw search results to the user.

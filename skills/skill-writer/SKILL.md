@@ -43,12 +43,12 @@ First, understand what the Skill should do:
 
 Determine where to create the Skill:
 
-**Personal Skills** (`~/.claude/skills/`):
+**Personal Skills** (`~/.copilot/skills/`):
 - Individual workflows and preferences
 - Experimental Skills
 - Personal productivity tools
 
-**Project Skills** (`.claude/skills/`):
+**Project Skills** (`.copilot/skills/`):
 - Team workflows and conventions
 - Project-specific expertise
 - Shared utilities (committed to git)
@@ -59,10 +59,10 @@ Create the directory and files:
 
 ```bash
 # Personal
-mkdir -p ~/.claude/skills/skill-name
+mkdir -p ~/.copilot/skills/skill-name
 
 # Project
-mkdir -p .claude/skills/skill-name
+mkdir -p .copilot/skills/skill-name
 ```
 
 For multi-file Skills:
@@ -255,8 +255,8 @@ If Claude doesn't use the Skill:
 
 2. **Check file location**:
    ```bash
-   ls ~/.claude/skills/skill-name/SKILL.md
-   ls .claude/skills/skill-name/SKILL.md
+   ls ~/.copilot/skills/skill-name/SKILL.md
+   ls .copilot/skills/skill-name/SKILL.md
    ```
 
 3. **Validate YAML**:

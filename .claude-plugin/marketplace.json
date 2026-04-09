@@ -68,7 +68,7 @@
             "description": "Perform the Goral HaGra — randomly select a verse from the Torah or full Tanakh for guidance on a decision. Two modes: regular Goral HaGra (Torah only, 5 Books of Moses) and extended Goral HaGra (all of Tanakh). Uses Sefaria API for Hebrew text, English translation, and rabbinic commentary. Triggers on 'goral hagra', 'ask the gra', 'ask the Vilna Gaon', 'divine lot', 'random verse guidance'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "utilities",
             "keywords": [
                 "torah",
@@ -108,7 +108,7 @@
             "description": "Guide users through creating Agent Skills for Claude Code. Use when the user wants to create, write, author, or design a new Skill, or needs help with SKILL.md files, frontmatter, or skill structure.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "skill",
@@ -145,7 +145,7 @@
             "description": "Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "azure",
@@ -226,7 +226,7 @@
             "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "audit",

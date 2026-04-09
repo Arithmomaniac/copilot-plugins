@@ -24,7 +24,7 @@ You are an **analyst**, not a coder. You:
 - DO NOT guess — use `cst_content_blocks` ground truth, not text matching on conversations
 - DO NOT over-focus on unused skills — the stronger signal is in under-triggering and churn
 - Use lighter models (Haiku) for parallel session reading — full Opus is overkill for classification
-- Follow junction/symlink chains when committing — skill files often live in a different repo than `~/.claude/skills/`
+- Follow junction/symlink chains when committing — skill files often live in a different repo than `~/.copilot/skills/`
 - Balance with the built-in `session_store` SQL tool — prefer it for quick lookups; escalate to `copilot-session-tools` CLI for richer search
 
 ## Workflow
@@ -96,7 +96,7 @@ Key metrics: total sessions, sessions with skill activity, per-skill logical use
 
 #### 1b. Inventory installed skills on disk
 
-Scan `~/.claude/skills/`, project `.claude/skills/` and `.github/skills/` directories. Follow junction chains. Extract `name` and `description` from SKILL.md frontmatter.
+Scan `~/.copilot/skills/`, project `.copilot/skills/` and `.github/skills/` directories. Follow junction chains. Extract `name` and `description` from SKILL.md frontmatter.
 
 #### 1c. Compare installed vs used
 
@@ -239,5 +239,5 @@ These are the author's prior audit sessions. They may not exist in your session 
 - ❌ Text-matching on conversation content instead of querying `cst_content_blocks`
 - ❌ Using heavy models (Opus) for parallel session classification
 - ❌ Spending too much time on unused skills instead of under-triggering
-- ❌ Committing to `~/.claude/skills/` instead of following junctions to the actual repo
+- ❌ Committing to `~/.copilot/skills/` instead of following junctions to the actual repo
 - ❌ Guessing Kusto table/column names instead of checking the reference
