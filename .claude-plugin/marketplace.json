@@ -14,7 +14,7 @@
             "description": "Copy analysis, summaries, or feedback to the clipboard as markdown or block-quoted markdown. Use when the user says 'copy to clipboard', 'copy as markdown', 'copy as quoted markdown', or asks to prepare text for pasting into PRs, docs, or chat.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.3",
             "category": "productivity",
             "keywords": [
                 "clipboard",
