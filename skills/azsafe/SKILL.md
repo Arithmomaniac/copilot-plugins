@@ -16,27 +16,27 @@ This skill provides a safe way to run read-only Azure CLI commands by proxying t
 
 ## How to Use
 
-The script is located at: `{USER_HOME}\.claude\skills\azsafe\azsafe.ps1`
+The script is located at: `{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1`
 
 **CRITICAL: You MUST inline the full literal path!** PowerShell doesn't expand `$HOME` or `~` in command paths. Before invoking azsafe.ps1, determine the user's home directory (e.g., via `$HOME` or `$env:USERPROFILE`) and construct the full literal path with that value inlined.
 
 > ⚠️ **If you loaded `ado-cli`:** That skill's examples previously used `$HOME\...` paths. Ignore that pattern — always use the fully resolved literal path shown below. The `$HOME\...` form silently breaks in the Copilot CLI shell wrapper.
 
 **PowerShell rules:**
-1. **Inline the resolved home path** - e.g., if `$HOME` is `C:\Users\jsmith`, use `C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1`
+1. **Inline the resolved home path** - e.g., if `$HOME` is `C:\Users\jsmith`, use `C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1`
 2. **Use `--output` not `-o`** - the short form conflicts with PowerShell's `-OutVariable`
 
 ```powershell
 # ✅ CORRECT - full inlined path with resolved home directory:
-C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1 group list --output table
-C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1 vm show --name myvm -g myrg --output json
+C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1 group list --output table
+C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1 vm show --name myvm -g myrg --output json
 
 # ❌ WRONG - variables don't expand in command paths:
-$HOME\.claude\skills\azsafe\azsafe.ps1 group list  # FAILS - $HOME not expanded
-~\.claude\skills\azsafe\azsafe.ps1 group list  # FAILS - ~ not expanded
+$HOME\.copilot\skills\azsafe\azsafe.ps1 group list  # FAILS - $HOME not expanded
+~\.copilot\skills\azsafe\azsafe.ps1 group list  # FAILS - ~ not expanded
 
 # ❌ WRONG - -o conflicts with PowerShell:
-C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1 group list -o table  # Use --output instead
+C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1 group list -o table  # Use --output instead
 
 # For write commands, use az directly:
 az group create -n newRG -l eastus
@@ -57,7 +57,7 @@ The Copilot CLI's shell tool defaults to a 10-second timeout (`initial_wait`). M
 **Example with correct timeout:**
 ```powershell
 # Mode: sync, initial_wait: 30
-C:\Users\jsmith\.claude\skills\azsafe\azsafe.ps1 devops invoke `
+C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1 devops invoke `
     --area build --resource timeline `
     --route-parameters project=One buildId=12345 `
     --org https://msazure.visualstudio.com `
@@ -95,13 +95,13 @@ The `az rest` and `az devops invoke` commands are allowed **only when the HTTP m
 
 ```powershell
 # These are ALLOWED (GET is default or explicit) - remember to inline the full path:
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 rest --url "https://management.azure.com/subscriptions?api-version=2020-01-01"
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 rest --method get --url "https://..."
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 devops invoke --area git --resource repositories
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 rest --url "https://management.azure.com/subscriptions?api-version=2020-01-01"
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 rest --method get --url "https://..."
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 devops invoke --area git --resource repositories
 
 # These are BLOCKED (non-GET methods):
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 rest --method post --url "https://..."
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 devops invoke --http-method DELETE --area git --resource repositories
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 rest --method post --url "https://..."
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 devops invoke --http-method DELETE --area git --resource repositories
 ```
 
 **Note:** Other `invoke` commands like `az vm run-command invoke` and `az aks command invoke` are **always blocked** because they execute arbitrary code (not REST-style).
@@ -110,10 +110,10 @@ The `az rest` and `az devops invoke` commands are allowed **only when the HTTP m
 
 ```powershell
 # Read-only operations via azsafe (inline full path, use --output not -o)
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 group list --output table
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 vm show -g myRG -n myVM --output json
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 storage account list --query "[].name" --output tsv
-{USER_HOME}\.claude\skills\azsafe\azsafe.ps1 account show --output json
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 group list --output table
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 vm show -g myRG -n myVM --output json
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 storage account list --query "[].name" --output tsv
+{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1 account show --output json
 
 # Write operations via az directly
 az group create -n newRG -l eastus
