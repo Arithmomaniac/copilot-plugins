@@ -275,6 +275,95 @@
             "agents": [
                 "./agents/smart-merge"
             ]
+        },
+        {
+            "name": "agent-writer",
+            "description": "Guide users through creating and updating custom Agent files (.agent.md) for Copilot CLI. Distinct from skill-writer which handles SKILL.md files.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "agent",
+                "authoring",
+                ".agent.md",
+                "copilot-cli"
+            ],
+            "skills": [
+                "./skills/agent-writer"
+            ]
+        },
+        {
+            "name": "fleet-parallel-implementation",
+            "description": "Parallelize large implementations across multiple sub-agents. Use when there are 4+ independent todos, wave-based work, or when the user says 'fleet parallel', 'parallel implementation', 'dispatch agents', 'swarm this'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "fleet",
+                "parallel",
+                "agents",
+                "implementation",
+                "swarm"
+            ],
+            "skills": [
+                "./skills/fleet-parallel-implementation"
+            ]
+        },
+        {
+            "name": "litellm-copilot",
+            "description": "Use litellm with the GitHub Copilot provider for LLM calls, structured output, tool calling, and model selection. Covers model discovery, Copilot multipliers, and benchmarks.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "litellm",
+                "copilot",
+                "llm",
+                "structured-output",
+                "models"
+            ],
+            "skills": [
+                "./skills/litellm-copilot"
+            ]
+        },
+        {
+            "name": "pr-shepherd",
+            "description": "Ensures every code change goes through the full quality gate before merge. Use when the user says 'approve and merge', 'PR process', 'quality gate', 'create PR', or 'submit PR'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "pr",
+                "quality-gate",
+                "merge",
+                "review",
+                "workflow"
+            ],
+            "skills": [
+                "./skills/pr-shepherd"
+            ]
+        },
+        {
+            "name": "svg-diagrams",
+            "description": "General SVG/HTML diagram best practices for dark/light themed visualizations. Provides HTML template with CSS custom property theming, layout guidelines, and Playwright verification workflow.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "svg",
+                "html",
+                "diagram",
+                "dark-mode",
+                "visualization"
+            ],
+            "skills": [
+                "./skills/svg-diagrams"
+            ]
         }
     ]
 }
