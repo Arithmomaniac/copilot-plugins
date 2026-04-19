@@ -145,7 +145,7 @@
             "description": "Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "azure",
