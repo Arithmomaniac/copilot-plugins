@@ -9,7 +9,7 @@ This skill provides a safe way to run read-only Azure CLI commands by proxying t
 
 ## When to Use
 
-> **Related skills**: Load `ado-cli` for ADO command patterns and reference. Use `diagnose-ado-build-failures` if a build is failing before attempting a release.
+> **Related skills**: Load `ado-guidance` for ADO command patterns and reference. Use `diagnose-ado-build-failures` if a build is failing before attempting a release.
 
 - **Use `azsafe.ps1`** for read-only operations: listing, showing, querying, exporting data
 - **Use `az` directly** when you need to perform write operations (create, delete, update, etc.)
@@ -20,7 +20,7 @@ The script is located at: `{USER_HOME}\.copilot\skills\azsafe\azsafe.ps1`
 
 **CRITICAL: You MUST inline the full literal path!** PowerShell doesn't expand `$HOME` or `~` in command paths. Before invoking azsafe.ps1, determine the user's home directory (e.g., via `$HOME` or `$env:USERPROFILE`) and construct the full literal path with that value inlined.
 
-> ⚠️ **If you loaded `ado-cli`:** That skill's examples previously used `$HOME\...` paths. Ignore that pattern — always use the fully resolved literal path shown below. The `$HOME\...` form silently breaks in the Copilot CLI shell wrapper.
+> ⚠️ **Path expansion bug:** Some older skill examples used `$HOME\...` paths. Always use the fully resolved literal path shown below. The `$HOME\...` form silently breaks in the Copilot CLI shell wrapper.
 
 **PowerShell rules:**
 1. **Inline the resolved home path** - e.g., if `$HOME` is `C:\Users\jsmith`, use `C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1`
@@ -63,6 +63,16 @@ C:\Users\jsmith\.copilot\skills\azsafe\azsafe.ps1 devops invoke `
     --org https://msazure.visualstudio.com `
     --output json
 ```
+
+## Known False-Positive Blocks
+
+azsafe blocks these legitimate read-only operations because they require POST:
+
+| Blocked Operation | Workaround |
+|---|---|
+| **ADO Code Search** (`POST search/codesearchresults`) | Use the `ado-code-search` skill/agent instead |
+| **WIQL queries** (`POST wit/wiql`) | Use `az boards query --wiql "..."` (GET-based) |
+| **`--query` JMESPath** (misinterpreted as verb) | Pipe JSON to `python -c "import json,sys; ..."` instead |
 
 ## Allowed Verbs(via azsafe.ps1)
 
