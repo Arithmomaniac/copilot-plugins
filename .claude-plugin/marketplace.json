@@ -87,7 +87,7 @@
             "description": "Reference instructions for the OpenSpec spec-driven development workflow. Orchestrates multi-model review panel and generates proposal/specs/design/tasks artifacts. Not invoked directly — use the openspec-planner agent via /agent to run this workflow.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "spec",
@@ -163,7 +163,7 @@
             "description": "Decompose large work into a DAG and execute across parallel worktrees with fleet agents, multi-model code review, auto-applied fixes, and streaming manual review. Integrates with plan mode — plan first, then switch to fleet orchestrator. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to split into parallel PR-sized tasks.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "fleet",
@@ -298,7 +298,7 @@
             "description": "Parallelize large implementations across multiple sub-agents. Use when there are 4+ independent todos, wave-based work, or when the user says 'fleet parallel', 'parallel implementation', 'dispatch agents', 'swarm this'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "fleet",
