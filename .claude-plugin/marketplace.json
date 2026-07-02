@@ -204,24 +204,6 @@
             ]
         },
         {
-            "name": "markdown-to-whatsapp",
-            "description": "Convert markdown content to WhatsApp formatting and copy to clipboard. Use when the user says 'copy for whatsapp', 'whatsapp format', 'format for whatsapp', 'wa format', 'send via whatsapp', 'paste in whatsapp', or 'markdown to whatsapp'.",
-            "source": "./",
-            "strict": false,
-            "version": "1.0.0",
-            "category": "productivity",
-            "keywords": [
-                "whatsapp",
-                "markdown",
-                "clipboard",
-                "formatting",
-                "convert"
-            ],
-            "skills": [
-                "./skills/markdown-to-whatsapp"
-            ]
-        },
-        {
             "name": "skill-audit",
             "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
             "source": "./",
@@ -294,6 +276,44 @@
             ]
         },
         {
+            "name": "aa-pareto",
+            "description": "Pareto search over Artificial Analysis model benchmarks (quality / speed / price), restricted to Copilot CLI-available models, to choose the best default model for a task. Use when picking or refreshing model defaults per role (heavy reasoner vs fast/mechanical, reduce vs map, proposer vs rater), refreshing the tri-review model table, or answering 'which model should I use / what's the quality-speed tradeoff'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.1",
+            "category": "developer-tools",
+            "keywords": [
+                "artificial-analysis",
+                "model-selection",
+                "pareto",
+                "quality-speed",
+                "benchmarks",
+                "copilot-cli"
+            ],
+            "skills": [
+                "./skills/aa-pareto"
+            ]
+        },
+        {
+            "name": "markdown-doc-writer",
+            "description": "Write and revise Markdown documentation that is not a formal design doc: how-to guides, pattern guides, READMEs, reference docs, team docs, and source-backed explanatory docs. Use when the user asks to write, edit, restructure, tighten, or review a Markdown document, especially with tables, lists, examples, code samples, headings, and tone/flow feedback. Do not use for formal design docs, RFCs, tech specs, or architecture proposals; use design-doc-writer for those.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.1",
+            "category": "productivity",
+            "keywords": [
+                "markdown",
+                "documentation",
+                "readme",
+                "how-to",
+                "reference",
+                "editing"
+            ],
+            "skills": [
+                "./skills/markdown-doc-writer"
+            ]
+        },
+        {
             "name": "fleet-parallel-implementation",
             "description": "Parallelize large implementations across multiple sub-agents. Use when there are 4+ independent todos, wave-based work, or when the user says 'fleet parallel', 'parallel implementation', 'dispatch agents', 'swarm this'.",
             "source": "./",
@@ -316,7 +336,7 @@
             "description": "Use litellm with the GitHub Copilot provider for LLM calls, structured output, tool calling, and model selection. Covers model discovery, Copilot multipliers, and benchmarks.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "litellm",

@@ -1,11 +1,28 @@
 ---
 name: litellm-copilot
-description: Use litellm with the GitHub Copilot provider for LLM calls, structured output, tool calling, and model selection. Covers when to use litellm vs the Copilot SDK, the three structured output strategies (json_schema, tool_choice, text_format), model discovery, Copilot multipliers, and Artificial Analysis benchmarks. Triggers on "litellm", "copilot llm", "structured output", "copilot models", "github_copilot", "LLM call", "tool calling", "copilot sdk vs litellm", "model selection", "premium requests".
+description: Use litellm with the GitHub Copilot provider for LLM calls, structured output, tool calling, and model selection. Covers litellm vs Copilot SDK, json_schema, tool_choice, text_format, model discovery, Copilot multipliers, and premium requests. Triggers on "litellm", "github_copilot", "GitHub Copilot provider", "structured output", "json_schema", "tool_choice", "text_format", "model selection", "tool calling", and "premium requests". Do not use for generic Copilot CLI, Docker/container debugging, session-store, audit, alias, or tool-install work.
 ---
 
 # LiteLLM with GitHub Copilot Provider
 
 Use `litellm` to call LLMs through the GitHub Copilot proxy with structured output, tool calling, and multi-model support. The `github_copilot/` provider authenticates via OAuth device flow and routes through the same API as Copilot Chat.
+
+## Activation guidance
+
+Use this skill when the user asks about:
+
+- `litellm` with the `github_copilot` provider or the GitHub Copilot provider name.
+- Programmatic LLM calls through Copilot, including Copilot model selection and premium request multipliers.
+- Structured output strategies: `json_schema`, `tool_choice`, `text_format`, Pydantic response models, or forced function calling.
+- Tool calling/function calling through LiteLLM and Copilot-hosted models.
+
+Do **not** use this skill for:
+
+- Generic Copilot CLI usage, slash commands, or agent capability questions.
+- Docker/container debugging, devcontainer setup, or containerized tool failures.
+- Session-store queries, audit workflows, alias setup, or installing unrelated tools.
+
+Correction rule: if the user clarifies with "I meant litellm" or equivalent after another skill/path was chosen, load this skill immediately and continue from the LiteLLM/Copilot-provider context.
 
 ## When to Use litellm vs the Copilot SDK
 
@@ -216,37 +233,26 @@ Models consume premium requests at different rates. With **unlimited GHCP**, opt
 
 **For unlimited GHCP plans:** Multiplier is irrelevant — pick by quality and speed.
 
-### Artificial Analysis Benchmarks
+### Artificial Analysis Benchmarks → delegated to the `aa-pareto` skill
 
-Query the [Artificial Analysis API](https://artificialanalysis.ai) for model quality/speed benchmarks:
+**Model *selection* (quality/speed Pareto) is owned by the `aa-pareto` skill.** It queries the
+Artificial Analysis API with the correct field paths
+(`evaluations.artificial_analysis_coding_index`, `artificial_analysis_intelligence_index`,
+`median_output_tokens_per_second`, `median_time_to_first_token_seconds`), restricts to Copilot CLI
+model ids, and returns the **Pareto frontier** plus role picks (heavy reasoner / quality-at-speed /
+fast-light). Prefer it over a hand-rolled query or a hardcoded table (which goes stale):
 
-```python
-import urllib.request, json
-
-req = urllib.request.Request(
-    "https://artificialanalysis.ai/api/v2/data/llms/models",
-    headers={"x-api-key": "YOUR_KEY"}
-)
-data = json.loads(urllib.request.urlopen(req).read())
-
-for model in sorted(data, key=lambda x: x.get("quality_index", 0), reverse=True)[:10]:
-    print(f"{model['name']}: quality={model.get('quality_index', '?')}, "
-          f"speed={model.get('tokens_per_second', '?')} t/s")
+```bash
+python ~/.copilot/skills/aa-pareto/aa_pareto.py            # coding metric: table + Pareto + picks
+python ~/.copilot/skills/aa-pareto/aa_pareto.py --json     # machine-readable
 ```
 
-**Key benchmarks for Copilot models** (as of 2026-04):
+Requires `AA_API_KEY` (sent as the `x-api-key` header). See the `aa-pareto` skill for per-role
+selection guidance and the reasoning-effort / context-tier caveats.
 
-| Model | AA Quality | Speed | Best for |
-|-------|-----------|-------|----------|
-| gpt-5.4 | 56.8 | 80 t/s | High-quality reasoning, proposing |
-| gpt-5.2 | 51.3 | 70 t/s | Alternative proposer |
-| gpt-5.4-mini | 48.9 | 179 t/s | Best quality×speed, batch rating |
-| gpt-5.1 | 47.7 | 112 t/s | Balanced |
-| claude-sonnet-4.6 | 44.4 | 53 t/s | Diversity, different reasoning style |
-
-**Recommended defaults:**
-- **Rater** (batch, speed matters): `github_copilot/gpt-5.4-mini` — highest quality-per-second
-- **Proposer** (reasoning, quality matters): `github_copilot/gpt-5.4` — top quality score
+**Rules of thumb once you have the frontier** (unlimited GHCP ⇒ optimize quality×speed, not price):
+- **Rater / batch / mechanical / parallel step:** the quality-at-speed knee (fastest near-top model).
+- **Proposer / adjudicator / one hard call:** the max-quality point, run at a high reasoning effort.
 
 ## Tool Calling
 
