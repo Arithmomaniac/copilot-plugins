@@ -62,7 +62,7 @@ Before creating, ask user which source to use for the branch:
 
 ```
 Suggested branch: bugfix/<username>/fix-auth-timeout
-Worktree: ../<repo>.worktrees/fix-auth-timeout
+Worktree: <repo>.worktrees/fix-auth-timeout
 
 Create branch from:
   [1] origin/main (recommended) - ensures branch starts from latest remote
@@ -73,19 +73,72 @@ Enter your choice [1]:
 
 Default is **origin/main** to ensure the branch always starts from the latest remote state.
 
+### Critical Worktree Location Rule
+
+When the current repository is itself a worktree, create the new worktree as a **sibling of the current worktree**, not under a new nested `.worktrees` directory.
+
+Correct:
+```text
+C:\_SRC\Repo.worktrees\current-task
+C:\_SRC\Repo.worktrees\new-task
+```
+
+Incorrect:
+```text
+C:\_SRC\Repo.worktrees\current-task.worktrees\new-task
+```
+
+Always resolve `$worktreeRoot` before creating the worktree:
+
+```powershell
+$gitRoot = (git rev-parse --show-toplevel).Replace('/', '\')
+$gitRootInfo = Get-Item $gitRoot
+
+# If any ancestor already ends in ".worktrees", use the outermost such ancestor.
+# This prevents creating nested worktree roots from inside an existing worktree.
+$worktreeRoot = $null
+$ancestor = $gitRootInfo
+while ($ancestor -ne $null) {
+    if ($ancestor.Name.EndsWith('.worktrees', [StringComparison]::OrdinalIgnoreCase)) {
+        $worktreeRoot = $ancestor.FullName
+    }
+
+    $ancestor = $ancestor.Parent
+}
+
+if ($worktreeRoot -eq $null) {
+    $repoName = Split-Path $gitRoot -Leaf
+    $worktreeRoot = Join-Path (Split-Path $gitRoot -Parent) "$repoName.worktrees"
+}
+```
+
 ### Step 5: Create Branch and Worktree
 
 **Default behavior (origin/main):**
 
 ```powershell
-# Get git root and repo name
-$gitRoot = git rev-parse --show-toplevel
-$repoName = Split-Path $gitRoot -Leaf
+# Resolve git root and non-nested worktree root
+$gitRoot = (git rev-parse --show-toplevel).Replace('/', '\')
+$gitRootInfo = Get-Item $gitRoot
+$worktreeRoot = $null
+$ancestor = $gitRootInfo
+while ($ancestor -ne $null) {
+    if ($ancestor.Name.EndsWith('.worktrees', [StringComparison]::OrdinalIgnoreCase)) {
+        $worktreeRoot = $ancestor.FullName
+    }
+
+    $ancestor = $ancestor.Parent
+}
+
+if ($worktreeRoot -eq $null) {
+    $repoName = Split-Path $gitRoot -Leaf
+    $worktreeRoot = Join-Path (Split-Path $gitRoot -Parent) "$repoName.worktrees"
+}
 
 # Define paths
 $branch = "feature/$username/fix-auth-timeout"
 $slug = "fix-auth-timeout"
-$worktreePath = Join-Path (Split-Path $gitRoot -Parent) "$repoName.worktrees" $slug
+$worktreePath = Join-Path $worktreeRoot $slug
 
 # Create worktree directory if needed
 $worktreeParent = Split-Path $worktreePath -Parent
@@ -112,10 +165,10 @@ If user selects option [2], use `git worktree add -b $branch $worktreePath` with
 
 ```
 ✅ Created branch: feature/<username>/fix-auth-timeout
-✅ Worktree ready at: ../<repo>.worktrees/fix-auth-timeout
+✅ Worktree ready at: <repo>.worktrees/fix-auth-timeout
 
 To start working:
-  cd ../<repo>.worktrees/fix-auth-timeout
+  cd <repo>.worktrees/fix-auth-timeout
 ```
 
 ## Slug Generation Guidelines
@@ -141,5 +194,6 @@ Rules:
 |-------|------------|
 | Branch already exists | Suggest alternative slug or ask user |
 | Worktree path exists | Check if it's the same branch; if not, suggest alternative |
+| Computed path contains `.worktrees\<slug>.worktrees\` | Stop and recompute `$worktreeRoot` using the Critical Worktree Location Rule |
 | ADO query fails | Fall back to asking user for slug |
 | Not in a git repo | Error and exit |

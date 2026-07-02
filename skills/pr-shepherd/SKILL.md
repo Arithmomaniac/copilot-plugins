@@ -1,6 +1,6 @@
 ---
 name: pr-shepherd
-description: Ensures every code change goes through the full quality gate before merge. Use when the user says "approve and merge", "publish approve merge", "PR process", "quality gate", "get this merged", "create PR", "submit PR", or after any implementation touching more than one file.
+description: Ensures completed code changes go through the full quality gate before PR/merge. Use when the user says "approve and merge", "publish approve merge", "PR process", "quality gate", "get this merged", "create PR", "submit PR", "monitor CI", or asks for final review/submission after implementation is complete.
 ---
 
 # PR Shepherd
@@ -9,10 +9,16 @@ Ensures every code change goes through the full quality gate (dual/tri model rev
 
 ## When to Use
 
-- After any implementation that touches more than one file
+- After a completed implementation is ready for review, PR creation, CI, or merge
 - Especially when the feature involved architectural changes (schema, API surface, DB separation)
 - Don't skip when the change 'looks small' — the review often catches real bugs
 - When the user says 'approve and merge', 'publish.approve.merge', or 'get this to the PR process'
+- When implementation is complete and the user asks for final review, CI, PR creation, publish, approval, merge, or submission
+
+## When Not to Use
+
+- During ordinary implementation, planning, or review-comment iteration before the work is ready for the quality gate
+- Repeatedly after each small edit in the same task; wait until there is a completed change set or an explicit PR/merge request
 
 ## Instructions
 

@@ -212,11 +212,27 @@ Launch two `explore` agents in parallel:
 
 Both are safe to parallelize (read-only). Present combined results before proceeding to Step 3.
 
+For localized merges where both branch intents are obvious from the commit list and changed files, do the analysis inline instead of launching both agents. Record the current-branch intent and source-branch intent in `merge_steps` notes before proceeding.
+
 ### Steps 7–8 (Tests)
 Use `task` agents for build/test execution — they return brief summaries on success and full output on failure, keeping the main context clean.
 
 ### Step 10 (Feature preservation)
-If the feature branch has many changes, launch an `explore` agent to search for silent regressions: "Given these feature-branch files [list], check whether their functionality is still wired up correctly after the merge."
+If the feature branch has many changes or the source branch rewrote cross-cutting infrastructure, launch an `explore` agent to search for silent regressions: "Given these feature-branch files [list], check whether their functionality is still wired up correctly after the merge."
+
+For localized merges, do the preservation check inline instead: list each feature-branch file or behavior from Step 2, confirm where it still exists after the merge, and record the result in the tracker.
+
+### Delegation throttle
+
+Before launching sub-agents, classify the merge scope:
+
+| Scope | Examples | Delegation rule |
+| --- | --- | --- |
+| Localized | Conflicts limited to one feature area, a small file set, or one test surface | Use one focused analysis pass and one validation/execution pass. Do not fan out multiple exploratory agents. |
+| Broad | Conflicts span independent subsystems, many files, or unknown feature intent | Use parallel explore agents for independent domains, then consolidate before editing. |
+| Validation-heavy | Build/test failures have verbose logs or independent failing suites | Use `task` agents for build/test execution and log summarization. |
+
+**CRITICAL:** Do not launch a new sub-agent with the same purpose and unchanged context. Read or wait for the existing result first. Relaunch only if the prior run failed with an actionable cause or the merge scope materially changed.
 
 ### General rules
 - `explore` agents are stateless — give them full context (file paths, branch names, merge-base SHA)
@@ -233,6 +249,7 @@ If the feature branch has many changes, launch an `explore` agent to search for 
 6. **Don't combine steps** — even when a step is trivial, mark it done individually and show the dashboard. Collapsing "Steps 1-5 done" into one update makes the user think you skipped work.
 7. **Build/test commands from Step 2b** — use them consistently in Steps 6-8. Don't re-discover or guess the commands mid-workflow.
 8. **If the user says "keep going"** — check the tracker for the next pending step and continue from there. Don't skip ahead to commit.
+9. **Throttle delegation for localized merges** — one focused analysis plus one validation pass is enough unless the merge spans independent domains.
 
 ---
 
