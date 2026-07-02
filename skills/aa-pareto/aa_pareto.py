@@ -14,6 +14,10 @@ Usage:
     python aa_pareto.py --all                    # do not restrict to Copilot CLI ids
     python aa_pareto.py --json                    # machine-readable output
     python aa_pareto.py --models "gpt-5.5,gemini-3.5-flash,claude-opus-4.8"  # custom id set
+    python aa_pareto.py --refresh                 # bypass the 24h cache and re-query the API
+
+Results are cached for 24h (the free tier allows only 100 requests/day). All data is provided by
+Artificial Analysis; attribution is required per their API terms.
 """
 from __future__ import annotations
 
@@ -21,9 +25,15 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.request
+from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 AA_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
+CACHE_TTL_SECONDS = 24 * 60 * 60  # AA data refreshes ~daily and the free tier is 100 req/day.
+ATTRIBUTION = ("Data by Artificial Analysis (https://artificialanalysis.ai) — "
+               "attribution required per their API terms.")
 
 # Copilot-CLI-available model ids → substrings that match their Artificial Analysis `name`.
 # Refresh this map when Copilot's model list changes (see SKILL.md → "Refresh the Copilot set").
@@ -47,14 +57,77 @@ COPILOT_MODELS: dict[str, list[str]] = {
 }
 
 
-def fetch() -> list[dict]:
+def cache_path() -> Path:
+    """Per-user cache file for the LLM endpoint (LOCALAPPDATA on Windows, ~/.cache elsewhere)."""
+    base = (os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME")
+            or os.path.join(os.path.expanduser("~"), ".cache"))
+    d = Path(base) / "aa-pareto"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        d = Path(os.path.expanduser("~"))
+    return d / "llms.json"
+
+
+def _load_cache(cp: Path) -> list[dict] | None:
+    try:
+        with cp.open(encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def fetch(refresh: bool = False) -> list[dict]:
+    """Return the AA LLM rows, served from a 24h cache unless --refresh or the cache is stale.
+
+    Handles auth (401/403) and rate-limit (429) errors with clear messages, warns when the daily
+    quota is nearly exhausted, and falls back to a stale cache on transient network failures.
+    """
+    cp = cache_path()
+    if not refresh and cp.exists() and (time.time() - cp.stat().st_mtime) < CACHE_TTL_SECONDS:
+        cached = _load_cache(cp)
+        if cached is not None:
+            return cached
+
     key = os.environ.get("AA_API_KEY") or os.environ.get("ARTIFICIAL_ANALYSIS_API_KEY")
     if not key:
         sys.exit("ERROR: set AA_API_KEY (or ARTIFICIAL_ANALYSIS_API_KEY) in the environment.")
     req = urllib.request.Request(AA_URL, headers={"x-api-key": key})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.load(resp)
-    return data.get("data") or data
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            payload = json.load(resp)
+            remaining = resp.headers.get("X-RateLimit-Remaining")
+            reset = resp.headers.get("X-RateLimit-Reset")
+            if remaining is not None and remaining.isdigit() and int(remaining) <= 5:
+                msg = f"WARNING: {remaining} Artificial Analysis API request(s) left today"
+                if reset:
+                    msg += f" (resets {reset})"
+                print(msg + "; results are cached for 24h.", file=sys.stderr)
+    except HTTPError as e:
+        if e.code in (401, 403):
+            sys.exit(f"ERROR: Artificial Analysis rejected the API key (HTTP {e.code}). "
+                     "Check AA_API_KEY / ARTIFICIAL_ANALYSIS_API_KEY.")
+        if e.code == 429:
+            reset = e.headers.get("X-RateLimit-Reset") if e.headers else None
+            hint = f", resets {reset}" if reset else ""
+            sys.exit(f"ERROR: Artificial Analysis rate limit reached (HTTP 429{hint}). "
+                     "Free tier is 100 req/day; re-run later or rely on the 24h cache.")
+        sys.exit(f"ERROR: Artificial Analysis API returned HTTP {e.code}: {e.reason}")
+    except URLError as e:
+        stale = _load_cache(cp) if cp.exists() else None
+        if stale is not None:
+            print(f"WARNING: live fetch failed ({e.reason}); using stale cache at {cp}.",
+                  file=sys.stderr)
+            return stale
+        sys.exit(f"ERROR: could not reach Artificial Analysis: {e.reason}")
+
+    data = payload.get("data") or payload
+    try:
+        with cp.open("w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except OSError:
+        pass  # caching is best-effort
+    return data
 
 
 def row(m: dict) -> dict:
@@ -152,10 +225,11 @@ def main() -> None:
     ap.add_argument("--all", action="store_true", help="do not restrict to Copilot CLI ids")
     ap.add_argument("--models", help="comma-separated Copilot ids to restrict to (subset of the map)")
     ap.add_argument("--tri-review", action="store_true", help="emit per-family heavy/light refresh candidates")
+    ap.add_argument("--refresh", action="store_true", help="bypass the 24h cache and re-query the API")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    models = fetch()
+    models = fetch(refresh=args.refresh)
     if args.all:
         rows = [row(m) for m in models]
     else:
@@ -194,6 +268,7 @@ def main() -> None:
             "rows": rows,
             "pareto_front": [label(r) for r in front],
             "picks": {k: label(v) for k, v in pk.items()},
+            "attribution": ATTRIBUTION,
         }, indent=2))
         return
 
@@ -209,6 +284,7 @@ def main() -> None:
     print(f"  fast / light     (fastest >= {args.min_quality:g} {args.metric}): {label(pk['fast_light'])}")
     print("\nNote: AA scores are measured at a specific reasoning effort (see the effort in [AA name]).")
     print("To realize a headline score, set the matching reasoning effort. Speed drops as effort rises.")
+    print("\n" + ATTRIBUTION)
 
 
 if __name__ == "__main__":
