@@ -274,7 +274,7 @@
             "description": "Pareto search over Artificial Analysis model benchmarks (quality / speed / price), restricted to Copilot CLI-available models, to choose the best default model for a task. Use when picking or refreshing model defaults per role (heavy reasoner vs fast/mechanical, reduce vs map, proposer vs rater), refreshing the tri-review model table, or answering 'which model should I use / what's the quality-speed tradeoff'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "artificial-analysis",
@@ -286,6 +286,25 @@
             ],
             "skills": [
                 "./skills/aa-pareto"
+            ]
+        },
+        {
+            "name": "tri-review",
+            "description": "Run an escalated, parallel three-model code review using Claude, GPT, and Gemini reviewers, then adjudicate consensus findings. Use when the user says 'tri-review', 'triple review', 'three model review', 'multi-model review', asks for a review with multiple models, or wants extra confidence on high-risk code changes.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.1",
+            "category": "developer-tools",
+            "keywords": [
+                "code-review",
+                "multi-model",
+                "consensus",
+                "claude",
+                "gpt",
+                "gemini"
+            ],
+            "skills": [
+                "./skills/tri-review"
             ]
         },
         {

@@ -45,7 +45,14 @@ python aa_pareto.py --models "gpt-5.5,gemini-3.5-flash,claude-opus-4.8"
 python aa_pareto.py --json             # machine-readable
 python aa_pareto.py --all              # every AA model, not just Copilot ids
 python aa_pareto.py --tri-review       # per-family heavy/light candidates (refreshes tri-review's table)
+python aa_pareto.py --refresh          # bypass the 24h cache and re-query the API
 ```
+
+Results are cached per user for **24h** (the free API tier allows only **100 requests/day**), so
+repeat runs are free; use `--refresh` to force a live re-query. On an exhausted quota (HTTP 429) or
+a rejected key (HTTP 401/403) the script prints a clear message instead of a stack trace, and it
+falls back to a stale cache on transient network errors. All data is provided by **Artificial
+Analysis**; attribution (printed in the output footer) is required per their API terms.
 
 It prints, restricted to Copilot ids: all candidates sorted by the chosen metric, the **Pareto
 frontier** (maximize quality & tok/s), and three role picks:
@@ -94,5 +101,5 @@ to see every AA model when hunting for the right `name` substring.
 
 - **`litellm-copilot`** — how to *call* the chosen model (structured output, tool calling, the
   `github_copilot/<id>` provider). It defers model *selection* to this skill.
-- **`tri-review`** — its "refresh" step now runs `aa_pareto.py --tri-review` to regenerate the
+- **`tri-review`** — its "refresh" step runs `aa_pareto.py --tri-review` to regenerate the
   per-family heavy/light reviewer candidates (apply judgment for pro-vs-flash heavy tiers).
