@@ -33,7 +33,7 @@
             "description": "Create a new git branch and worktree from context. Use when starting work on a task — given a freetext description, auto-selects branch prefix (feature/bugfix/experiment) based on context, creates branch, and sets up worktree. Triggers on 'create worktree', 'new branch for', 'start work on'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "git",
@@ -108,7 +108,7 @@
             "description": "Guide users through creating Agent Skills for Claude Code. Use when the user wants to create, write, author, or design a new Skill, or needs help with SKILL.md files, frontmatter, or skill structure.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "skill",
@@ -145,7 +145,7 @@
             "description": "Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.3",
             "category": "developer-tools",
             "keywords": [
                 "azure",
@@ -186,7 +186,7 @@
             "description": "Guide writing design documents through a staged workflow with quality gates. Agent orchestrates 4 stages (problem validation, design skeleton, decision resolution, editorial hardening). Companion skill provides reference formats and checklists. Use /agent design-doc-writer to start.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.3",
             "category": "developer-tools",
             "keywords": [
                 "design",
@@ -226,7 +226,7 @@
             "description": "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages.",
             "source": "./",
             "strict": false,
-            "version": "1.0.3",
+            "version": "1.0.4",
             "category": "developer-tools",
             "keywords": [
                 "pipeline",
@@ -246,7 +246,7 @@
             "description": "Merge from a branch while preserving feature intent, with adaptive validation scaled to merge complexity. Assesses scope after merge to skip unnecessary steps (with user confirmation). Use /agent smart-merge with the source branch.",
             "source": "./",
             "strict": false,
-            "version": "1.1.0",
+            "version": "1.1.1",
             "category": "developer-tools",
             "keywords": [
                 "git",
@@ -263,7 +263,7 @@
             "description": "Guide users through creating and updating custom Agent files (.agent.md) for Copilot CLI. Distinct from skill-writer which handles SKILL.md files.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "agent",
@@ -354,7 +354,7 @@
             "description": "Ensures every code change goes through the full quality gate before merge. Use when the user says 'approve and merge', 'PR process', 'quality gate', 'create PR', or 'submit PR'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "pr",
@@ -372,7 +372,7 @@
             "description": "General SVG/HTML diagram best practices for dark/light themed visualizations. Provides HTML template with CSS custom property theming, layout guidelines, and Playwright verification workflow.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "svg",

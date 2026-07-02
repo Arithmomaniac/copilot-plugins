@@ -5,7 +5,7 @@ description: Safe Azure CLI proxy that only allows read-only commands. Use azsaf
 
 # azsafe - Safe Azure CLI Proxy
 
-This skill provides a safe way to run read-only Azure CLI commands by proxying through `azsafe.ps1`.
+This skill provides the canonical mechanics for running read-only Azure CLI commands through `azsafe.ps1`. For ADO endpoint selection and PR/build recipe tables, load `ado-guidance`; do not duplicate those details here.
 
 ## When to Use
 

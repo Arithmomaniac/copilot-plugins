@@ -2,16 +2,22 @@
 name: design-doc-writer
 description: >-
   Reference formats and quality gate checklists for the design-doc-writer agent.
-  Auto-loads when design doc work is active. Provides section templates, decision
-  record formats, and per-stage checklists. Use when the user says write a design
-  doc, design document, create a design proposal, start a design, new design doc,
-  RFC, tech spec, document a design decision, restructure this design doc, improve
-  this design doc, review this design doc, or this doc needs work.
+  Use only for formal design documents, RFCs, technical specs, architecture
+  proposals, and design decision records. Provides section templates, decision
+  record formats, and staged quality gates. Do not use for general Markdown
+  how-to guides, READMEs, pattern guides, reference docs, or prose-only editing;
+  use markdown-doc-writer for those.
 ---
 
 # Design Doc Writer — Reference Skill
 
 > This skill provides reference formats for the **design-doc-writer agent**. The agent orchestrates the staged workflow (Stage 0–3 with quality gates); this skill provides section templates, decision record formats, and quality gate checklists as progressive-disclosure reference material.
+
+## Scope Guard
+
+Use this skill only when the deliverable is explicitly a design document, RFC, tech spec, architecture proposal, or design decision record.
+
+Do not use this skill for general Markdown documentation such as how-to guides, pattern guides, READMEs, reference pages, team docs, or iterative prose/structure cleanup. Those should use `markdown-doc-writer` instead.
 
 ## Style Rules for All LLM-Generated Prose
 

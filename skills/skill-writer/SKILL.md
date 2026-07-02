@@ -26,16 +26,28 @@ First, understand what the Skill should do:
 1. **Ask clarifying questions**:
    - What specific capability should this Skill provide?
    - When should Claude use this Skill?
+   - What exact user phrases should trigger it?
+   - What adjacent phrases should **not** trigger it?
+   - What inputs does it expect, and what output should it produce?
    - What tools or resources does it need?
+   - What external dependencies, accounts, or data sources does it rely on?
    - Is this for personal use or team sharing?
+   - Should it be a personal skill, project skill, or plugin-distributed skill?
    - Could this be a refinement of an existing skill instead of a brand-new one?
 
 2. **Check for reuse first**:
    - Re-read nearby installed skills if the workflow sounds adjacent
    - Use a discovery/search skill before creating a new one for a domain you haven't checked yet
    - Prefer extending an existing skill when the new behavior is a tighter trigger, fallback, or reference section
+   - Check discoverable marketplace plugins when the request is generic authoring, evaluation, scaffolding, or publishing; do not create a duplicate local skill if an installed/discoverable plugin already covers the need
+   - If a marketplace plugin is close but not exact, borrow its pattern and explain why the local skill still needs to exist
 
-3. **Keep it focused**: One Skill = one capability
+3. **Load the domain skill when updating one**:
+   - When auditing, reviewing, or updating a specific domain skill, read that skill's `SKILL.md` and any relevant supporting files before proposing behavior changes.
+   - `skill-writer` is only the meta-authoring guide for skill structure, frontmatter, validation, and trigger hygiene; it is not enough to understand domain-specific behavior.
+   - Use the domain skill's current instructions as the source of truth for its workflow, tools, triggers, and non-triggers, then apply `skill-writer` guidance to make those instructions valid and discoverable.
+
+4. **Keep it focused**: One Skill = one capability
    - Good: "PDF form filling", "Excel data analysis"
    - Too broad: "Document processing", "Data tools"
 
@@ -186,24 +198,40 @@ pip install package-name
 For complex scenarios, see [reference.md](reference.md).
 ```
 
-### Step 7: Add supporting files (optional)
+### Step 7: Add progressive disclosure (optional)
 
-Create additional files for progressive disclosure:
+Use progressive disclosure when the Skill has important detail that should not be loaded on every invocation. Keep `SKILL.md` small, actionable, and sufficient for the normal path; put optional depth in supporting files.
 
-**reference.md**: Detailed API docs, advanced options
-**examples.md**: Extended examples and use cases
-**scripts/**: Helper scripts and utilities
-**templates/**: File templates or boilerplate
+Keep in `SKILL.md`:
+- Frontmatter and activation guidance
+- Quick start and the normal happy-path workflow
+- Required first-run steps and hard constraints
+- Links to supporting files with clear "read when" instructions
 
-Reference them from SKILL.md:
+Move to supporting files:
+- **reference.md**: Detailed API docs, option matrices, schemas, and advanced behavior
+- **examples.md**: Extended examples, realistic prompts, expected outputs, and edge cases
+- **scripts/**: Helper scripts and utilities
+- **templates/**: Boilerplate files, prompt templates, or output templates
+- **data/** or **config.json**: Large lookup tables or configuration defaults
+
+Reference supporting files from `SKILL.md` only when the main workflow needs them:
 ```markdown
 For advanced usage, see [reference.md](reference.md).
+For realistic examples and expected outputs, see [examples.md](examples.md).
 
 Run the helper script:
 \`\`\`bash
 python scripts/helper.py input.txt
 \`\`\`
 ```
+
+Avoid these progressive disclosure anti-patterns:
+- Hiding required first-run setup in a file the agent might not read
+- Linking to files without saying when to read them
+- Splitting guidance into many tiny files that force excessive context loading
+- Duplicating the same instructions in `SKILL.md` and `reference.md`
+- Moving safety constraints out of the primary `SKILL.md`
 
 ### Step 8: Validate the Skill
 
@@ -326,6 +354,26 @@ Detailed reference: See [reference.md](reference.md)
 4. Review against best practices (see reference.md)
 ```
 
+### Skill with reference material
+
+Use this pattern when the skill has a compact workflow plus large optional detail:
+
+```markdown
+# Incident Query Helper
+
+## Quick start
+
+1. Gather the incident ID and affected service.
+2. Run the standard query.
+3. Summarize impact and next action.
+
+## References
+
+- Read [queries.md](queries.md) when the standard query is insufficient.
+- Read [examples.md](examples.md) when drafting user-facing incident summaries.
+- Use `scripts/normalize.py` only after confirming the raw export path.
+```
+
 ## Best practices for Skill authors
 
 1. **One Skill, one purpose**: Don't create mega-Skills
@@ -336,6 +384,27 @@ Detailed reference: See [reference.md](reference.md)
 6. **Test with teammates**: Verify activation and clarity
 7. **Version your Skills**: Document changes in content
 8. **Use progressive disclosure**: Put advanced details in separate files
+9. **Design negative triggers**: State when adjacent workflows should use a different skill or no skill
+10. **Prefer reuse over duplication**: Improve an existing skill when the request is a refinement, not a new capability
+
+## Quality gate
+
+Before finalizing a Skill, give it a short quality verdict:
+
+| Dimension | Check |
+|-----------|-------|
+| Instruction clarity | Can Claude follow the steps without guessing? |
+| Behavioral completeness | Are setup, normal path, edge cases, and exit conditions covered? |
+| Trigger specificity | Does the description include realistic user phrases and file/context clues? |
+| Negative triggers | Does it distinguish nearby skills and non-goals? |
+| Example quality | Are examples concrete enough to anchor behavior? |
+| Progressive disclosure fit | Is required guidance in `SKILL.md` and optional detail in supporting files? |
+| Safety boundaries | Are destructive actions, credentials, and external data handled explicitly? |
+| Tool fit | Are required tools/resources named without over-granting access? |
+| Portability | Will it work in the intended personal/project/plugin location? |
+| Maintainability | Is repeated or volatile detail factored into references, scripts, or templates? |
+
+Use the verdict to recommend one of: **keep**, **tighten triggers**, **move detail to supporting files**, **inline critical rules**, **merge with an existing skill**, or **defer to an existing plugin**.
 
 ## Validation checklist
 
@@ -349,6 +418,9 @@ Before finalizing a Skill, verify:
 - [ ] Examples are concrete and realistic
 - [ ] Dependencies are documented
 - [ ] File paths use forward slashes
+- [ ] Supporting files are linked with clear "read when" guidance
+- [ ] Required setup and safety rules are not hidden in supporting files
+- [ ] Nearby installed/discoverable skills or plugins were considered before creating a duplicate
 - [ ] Skill activates on relevant queries
 - [ ] Claude follows instructions correctly
 

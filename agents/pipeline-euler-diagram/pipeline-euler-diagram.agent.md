@@ -1,7 +1,7 @@
 ---
 name: "pipeline-euler-diagram"
-description: "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages and code structure. Produces complex (fork-topology), simplified (horizontal-bands), and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages."
-tools: ["execute", "read", "edit", "search", "agent", "web/fetch"]
+description: "Generate Euler-style SVG/HTML pipeline diagrams showing the intersection of data flow stages, code structure, and cross-cutting behavior state. Produces complex, simplified, target-plan, and delta comparison versions with dark/light toggle. Use when the user says 'pipeline diagram', 'euler diagram', 'flow diagram', 'code structure diagram', 'visualize the pipeline', or asks to map code files to pipeline stages."
+tools: ["*"]
 ---
 
 # Pipeline Euler Diagram Agent
@@ -16,6 +16,11 @@ Two visual layers on one canvas:
 
 Where outlines sit cleanly inside a single band → good alignment.
 Where outlines cross band boundaries → structural mismatch worth noting.
+
+A third visual category is required when present:
+- **Large dashed cross-cutting outlines** = behavior-influencing state that spans stages.
+
+If a concept affects runtime behavior and is defined, written, tuned, validated, or consumed across multiple stages, it belongs in the diagram geometry — not only in prose. Examples include model IDs, weights, config keys, schema fields, feature flags, prompt templates, calibration outputs, cached/precomputed data, validation gates, routing rules, and policy constraints.
 
 ---
 
@@ -36,6 +41,7 @@ I need a comprehensive analysis of [REPO] for a pipeline Euler diagram. Provide 
 6. Orchestrator methods — thin dispatchers vs inline workers
 7. Monoliths — functions >100 lines crossing multiple logical stages
 8. Schema contracts — where data models are defined, validated, and consumed
+9. Behavior-influencing cross-cutting state — model IDs, weights, config, schema fields, prompts, precompute caches, feature flags, validation gates, routing rules, and policy constraints
 ```
 
 **Also check session history** — query `session_store` for prior SVG/diagram/flow sessions on the same codebase:
@@ -53,6 +59,7 @@ ORDER BY rank LIMIT 10;
 - Named containers: dataclasses vs positional tuples for intermediate data
 - Schema contracts: where column/field names are defined vs validated vs actually created
 - Stage boundaries: where one logical stage ends and the next begins
+- Behavior-influencing state with a multi-stage lifecycle: defined in one stage, written/tuned in another, consumed or validated later
 
 **Checkpoint:** Present the discovered pipeline stages, topology, and key findings to the user. Confirm stage naming and topology before drawing.
 
@@ -63,6 +70,23 @@ Before drawing anything, determine:
 - **Fork**: stages that consume the same input in parallel → use fork topology with diamond
 - **Fork-join**: parallel branches that merge back → fork topology with join diamond
 
+### Phase 2.5: Identify Cross-Cutting Euler Overlays
+
+After topology is determined and before drawing, explicitly identify behavior-influencing concerns whose lifecycle crosses stage boundaries.
+
+Common overlay candidates:
+- model IDs and model registry state
+- weights, thresholds, calibration outputs, and tuned parameters
+- config keys and feature flags
+- schema fields and validation/readiness checks
+- prompt templates and policy constraints
+- cached/precomputed data used at runtime
+- routing rules and shared API contracts
+
+**CRITICAL:** If a cross-cutting concern affects runtime behavior, draw it as a large dashed Euler outline spanning every stage where it is defined, written, tuned, validated, or consumed. Do not reduce it to a standalone text box or a reference-table row.
+
+Overlay labels should explain the lifecycle in short form, for example: `feeds -> scores -> thresholds -> sampling`.
+
 ### Phase 3: Create Deliverables
 
 All files go in the session workspace `files/` directory.
@@ -72,8 +96,10 @@ All files go in the session workspace `files/` directory.
 - All code outlines with function names and line counts
 - Named delegate methods visible inside orchestrator spine
 - Cross-file call arrows (dashed lines between outlines)
+- Cross-cutting Euler overlays for behavior-influencing state that spans stages
 - Legend section above the SVG explaining visual elements
 - Full HTML summary section below the SVG:
+  - "How to read the cross-cutting overlays" table before reference tables when overlays exist
   - Stage-to-code alignment table (stage → files → lines → CLEAN/MODERATE/MISALIGNED)
   - Structural observation cards (CLEAN / MONOLITH / SCHEMA GAP / KEY INSIGHT / OPPORTUNITY)
   - "What the Diagram Reveals" closing paragraph
@@ -91,11 +117,18 @@ All files go in the session workspace `files/` directory.
 - Delta arrows connecting equivalent elements
 - Resolution summary box and scorecard
 
+#### 3d. Target/Plan Version (`pipeline-redesign.html` or `pipeline-target.html`) — only if the user asks for a proposed design or plan diagram
+- Clearly title it as proposed/target/planning, not current state
+- Filled bands show target pipeline stages
+- Outlines show proposed modules, contracts, guardrails, validation gates, and plan todos
+- Cross-cutting overlays show intended architecture concerns spanning target stages
+- Do not include verified current-code line counts unless a current code element is explicitly shown
+
 **Checkpoint:** Present a summary of what was created to the user.
 
 ### Phase 4: Verify with Playwright
 
-Render ALL HTML files as PNG screenshots — dark AND light mode for each:
+Render ALL HTML files as PNG screenshots — dark AND light mode for each. Do not hard-code only two filenames if additional diagram variants were created.
 
 ```python
 from playwright.sync_api import sync_playwright
@@ -107,8 +140,9 @@ with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page(viewport={'width': 1600, 'height': 900})
 
-    for name in ['pipeline-euler', 'pipeline-simple']:
-        html_path = os.path.join(session_dir, f'{name}.html')
+    for html_file in sorted(f for f in os.listdir(session_dir) if f.startswith('pipeline-') and f.endswith('.html')):
+        name = os.path.splitext(html_file)[0]
+        html_path = os.path.join(session_dir, html_file)
         if not os.path.exists(html_path):
             continue
         # Dark mode
@@ -129,11 +163,18 @@ with sync_playwright() as p:
 - Spacing: data boundary boxes need clear separation from adjacent bands
 - Readability: font sizes (7–11pt) legible at 1600px width
 - Light mode: colors remain distinguishable after filter inversion
+- Overlay borders: dashed cross-cutting outlines must not run through text labels
+- Overlay anchors: marker dots must not sit on labels or make labels unreadable
+- Overlay labels: lifecycle labels must not crowd code boxes or stage labels
+- Overlay distinguishability: overlapping dashed outlines must remain visually separable in dark and light mode
+- Edge clearance: bottom/right overlay edges must not cut through output/serving boxes
 
 Fix issues and re-render until clean. Common fixes:
 - `y` coordinates too close → increase by 10–20 units
 - Text overlapping rect → adjust rect height or text y position
 - Outline crossing into wrong band → move rect x/y/height
+- Overlay border crossing text → enlarge canvas/stage height, move edge outside the text row, or route outline through margins
+- Anchor dot on label → move anchor to box edge or adjacent whitespace
 
 **Checkpoint:** Present screenshots to the user. Do not proceed until user approves.
 
@@ -152,6 +193,7 @@ Start-Process "$sessionDir\pipeline-simple.html"
 - **SVG diagrams** describe the code as it **is** — no "was X", "↓N", "FIXED", "now" relative references in the diagram itself
 - **HTML summary** (complex version only) may reference before/after history if relevant
 - **Delta comparison** is explicitly comparative — that's its purpose
+- **Target/plan diagrams** must be explicitly titled as proposed/target/planning diagrams; they may show plan todos, proposed modules, and desired contracts, but must not imply those elements already exist in code
 
 ---
 
@@ -219,6 +261,7 @@ Proven sizing from successful renders:
 | Code outline inset | 10–20px inside band | 15px inside band |
 | Code outline stroke | 1.5–2px solid | 1.5px solid |
 | Cross-stage outline | 2.5px dashed (amber) | 2.5px dashed (amber) |
+| Cross-cutting overlay | 2–2.5px dashed, low opacity, large rounded rect | use sparingly |
 | Flow spine x | 35 (left margin) | 40 (left margin) |
 | Spine circle radius | 11–12 | 11 |
 | Font: file names | 10–11px, font-weight 600 | 10px, font-weight 600 |
@@ -232,6 +275,7 @@ Proven sizing from successful renders:
 - **Stage band**: `<rect fill="STAGE_COLOR" opacity="0.10" rx="5-6"/>`
 - **Code outline**: `<rect fill="none" stroke="COLOR" stroke-width="1.5-2" rx="3-4"/>`
 - **Cross-stage outline**: `<rect fill="none" stroke="#d29922" stroke-width="2.5" stroke-dasharray="7,4" rx="5-6"/>`
+- **Cross-cutting overlay**: `<rect fill="none" stroke="OVERLAY_COLOR" stroke-width="2.2" stroke-dasharray="10,6" stroke-opacity="0.70" rx="16-18"/>`
 - **Data boundary**: `<rect fill="#0d1117" stroke="#39d2c0" stroke-width="1.5" rx="3"/>` + monospace text
 - **Fork diamond**: `<polygon points="x,y-14 x+13,y x,y+14 x-13,y" fill="none" stroke="#484f58"/>`
 - **Arrow marker**: `<marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#484f58"/></marker>`
@@ -269,6 +313,8 @@ Each observation card: tag badge (color-coded) + specific code element + 2–3 s
 - **DO NOT** make the diagrams too tall for their content — a 7-stage pipeline with clean alignment needs ~900–1100px height, not 2000px.
 - **DO NOT** guess line counts. Read the actual files to verify any count that will appear in the diagram.
 - **DO NOT** modify the target codebase. You analyze and visualize; you do not refactor.
+- **DO NOT** represent multi-stage behavior state only as text boxes or summary tables. If it changes behavior across stages, make it visible as cross-stage geometry.
+- **DO NOT** let overlay borders, labels, or anchor dots cross text. Overlay geometry needs the same visual QA as code outlines.
 
 ---
 
@@ -279,13 +325,26 @@ Before finishing, verify:
 - [ ] All pipeline files inventoried with verified line counts
 - [ ] Full call graph traced from entry points
 - [ ] Pipeline topology determined (linear / fork / fork-join)
+- [ ] Cross-cutting behavior state identified and drawn as Euler overlays where applicable
 - [ ] Complex version created with data boundaries + HTML summary
+- [ ] Complex version includes "How to read the cross-cutting overlays" if overlays exist
 - [ ] Simplified version created (horizontal bands, self-contained)
 - [ ] Delta comparison created (if comparing branches)
+- [ ] Target/plan comparison created if user asks for proposed architecture
 - [ ] Dark/light toggle works on all files
 - [ ] All rendered via Playwright and visually verified (dark + light)
-- [ ] Screenshots viewed with `view` tool — no overlaps, good spacing
+- [ ] Screenshots viewed with `view` tool — no text overlaps, no overlay-label collisions, good spacing
 - [ ] SVG diagrams are standalone (no before/after relative references)
 - [ ] Observations include concrete, actionable suggestions
 - [ ] User has approved visual result
 - [ ] All files opened in browser for user review
+
+---
+
+## Tips from Real Usage
+
+1. **Cross-cutting state is geometry.** If a concern changes behavior across stages, draw it as an overlay spanning those stages. Reference tables are useful, but they are not a substitute for the Euler shape.
+2. **Add an overlay interpretation section.** Users need a short "How to read the cross-cutting overlays" section before detailed tables; otherwise the diagram can look like boxes plus unexplained rings.
+3. **Verify overlay geometry separately.** A screenshot can look generally clean while dashed overlay borders still cut through labels. Check borders, anchor dots, labels, and light-mode contrast explicitly.
+4. **Render every variant you create.** If you add `pipeline-delta.html`, `pipeline-redesign.html`, or another `pipeline-*.html`, include it in Playwright rendering, screenshot review, copying, and browser opening.
+5. **Plan/target diagrams are not current-state diagrams.** When showing proposed architecture, title it as proposed and use todos/contracts/modules instead of pretending planned elements are current code.

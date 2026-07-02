@@ -10,7 +10,7 @@ description: >-
 
 # Agent Writer
 
-Create well-structured `.agent.md` files for GitHub Copilot CLI custom agents. Agents are single-file workflow orchestrators — they define a role, a phased workflow with checkpoints, and battle-tested tips learned from real usage.
+Create well-structured `.agent.md` files for GitHub Copilot CLI custom agents. Agents are workflow orchestrators — they define a role, a phased workflow with checkpoints, and battle-tested tips learned from real usage.
 
 ## When to Use
 
@@ -33,10 +33,10 @@ Create well-structured `.agent.md` files for GitHub Copilot CLI custom agents. A
 | Loaded when | User selects via `/agent` or `--agent=` | Auto-invoked when trigger phrases match |
 | Effect | Instructions **added** to each user message | Content **injected** into main agent context |
 | Survives compaction | Yes (stored on session object) | Yes (re-injected each turn) |
-| File structure | **Single file** — all instructions inline | Can have supporting files (reference.md, etc.) |
+| File structure | Primary `.agent.md`; may reference stable project/plugin files when the workflow says when to read them | Can have supporting files (reference.md, etc.) |
 | Best for | Multi-step interactive workflows with state | Reference knowledge and triggered procedures |
 
-**Key rule**: Agents are **single-file**. No supporting `reference.md` or `examples.md` — that's a skill pattern (progressive disclosure). If an agent needs reference material, it either inlines it or **hands off to a skill** that provides it.
+**Key rule**: Keep workflow-critical instructions inline in the `.agent.md`. Agents can use progressive disclosure by explicitly referencing stable project/plugin files or by handing off reusable detail to a skill. Do not rely on external files for safety rules, workflow order, or required checkpoints unless the agent first instructs the assistant to read them before acting.
 
 **Additive instructions**: The built-in system message (identity, tool usage, code change rules, git practices) remains. Don't duplicate what the system already provides.
 
@@ -47,16 +47,22 @@ Create well-structured `.agent.md` files for GitHub Copilot CLI custom agents. A
 1. **Ask clarifying questions**:
    - What specific workflow should this agent handle?
    - When would the user select this agent via `/agent`?
+   - What trigger phrases should suggest this agent?
+   - What adjacent requests should **not** use this agent?
+   - What state does the workflow need to track?
+   - What outputs or decisions should the agent produce?
    - What tools does it need?
    - Is this for personal use or team sharing?
+   - Will the agent stand alone, reference project/plugin docs, or hand off detailed guidance to skills?
 
 2. **Check for reuse first**:
    - Search `~/.copilot/agents/` for existing agents that might cover this
    - Consider whether a skill would be more appropriate (if it's triggered knowledge, not a workflow)
    - Check if an existing agent can be extended rather than creating a new one
+   - Check installed/discoverable plugins when the request is generic agent authoring, scaffolding, validation, or routing; prefer using or learning from those instead of creating a duplicate local agent
 
 3. **Keep it focused**: One agent = one workflow domain
-   - Good: "PR comment reviewer", "IcM incident investigator", "Fleet orchestrator"
+   - Good: "PR comment reviewer", "IcM incident investigator", "Build diagnostics orchestrator"
    - Too broad: "Code helper", "DevOps assistant"
 
 ### Step 2: Choose agent location
@@ -136,10 +142,10 @@ Agents follow a consistent structure. Every section is optional except Workflow,
 Open with an `# Agent Name` header and a role statement. The role sets identity and operating mode.
 
 ```markdown
-# Fleet Orchestrator
+# PR Comment Reviewer
 
-You are the Fleet Orchestrator — a workflow manager that decomposes large
-bodies of work into a DAG, then executes tasks in parallel across git worktrees.
+You are a PR comment reviewer — a workflow manager that fetches PR threads,
+triages each comment, and guides the user through addressing feedback.
 ```
 
 Role declarations are brief but set clear boundaries: "You are an analyst, not a coder", "You are a manager of software engineers, not a coder".
@@ -186,7 +192,7 @@ Hard limits come in two forms — use both:
 - DO NOT block the user waiting for background work — pipeline everything
 ```
 
-**Which to use?** If the agent does the work itself (like `review-pr-comments`), inline CRITICALs are better — they sit right where the agent would make the mistake. If the agent mostly delegates (like `fleet-orchestrator`), a standalone section establishes global rules before the workflow begins. Most agents should use **both**: global constraints at the top, plus inline CRITICALs at high-risk workflow steps.
+**Which to use?** If the agent does the work itself (like `review-pr-comments`), inline CRITICALs are better — they sit right where the agent would make the mistake. If the agent mostly delegates (like a build orchestrator), a standalone section establishes global rules before the workflow begins. Most agents should use **both**: global constraints at the top, plus inline CRITICALs at high-risk workflow steps.
 
 #### 5d. Workflow (the core)
 
@@ -239,18 +245,56 @@ Use [API/tool] to get [data]. Filter to [criteria].
 
 **Decision trees**: When the workflow branches, show the branches explicitly with `#### If "X":` sub-sections.
 
-#### 5e. Skill handoffs
+#### 5e. Progressive disclosure for agents
+
+Agents should not load every possible detail up front. Use progressive disclosure, but keep the activation path safe:
+
+1. **Inline-first agent**
+   - Keep the role, workflow phases, checkpoints, constraints, and irreversible-action rules in the `.agent.md`.
+   - Inline any rule whose absence could cause unsafe behavior, wrong workflow order, or user-visible damage.
+
+2. **Agent references project/plugin docs**
+   - Use this when detailed material is large, phase-specific, or already maintained with the project/plugin.
+   - Reference exact files and say when to read them:
+     ```markdown
+     Before Phase 2 dispatch, read `docs/phase-2-collection.md`.
+     On resume, read `docs/state-schema.md` before editing runtime state.
+     ```
+   - Prefer stable relative paths for project or plugin agents.
+   - Be cautious with personal agents: a flat `.agent.md` in `~/.copilot/agents/` may not have an obvious packaging story for sibling docs unless you deliberately create and reference those files.
+
+3. **Agent hands off to skills**
+   - Use this when the detail is reusable outside the agent or should auto-trigger independently.
+   - The agent owns sequencing and decisions; the skill owns detailed reference material or specialized procedures.
+
+4. **Agent dispatches sub-agents with phase docs**
+   - Use this when each delegated worker needs only a slice of the reference material.
+   - The root agent should read or pass the relevant phase doc in the sub-agent prompt instead of loading all docs into the root context.
+
+Decision rules:
+- **Inline** critical workflow order, approval gates, safety constraints, and state lifecycle.
+- **Reference files** for large examples, schemas, phase prompts, lookup tables, or maintenance-heavy domain docs.
+- **Create a skill** when the reference material is reusable, triggerable on its own, or better maintained as a multi-file capability.
+- **Avoid external references** for small agents where the extra lookup would be more fragile than inlining.
+
+Validation checks:
+- Referenced files exist and paths are stable for the intended distribution model.
+- Each reference says exactly when to read the file.
+- Required safety and checkpoint rules are not only in late-loaded files.
+- The agent remains understandable without preloading every referenced file.
+
+#### 5f. Skill handoffs
 
 When an agent orchestrates a workflow that a skill provides reference details for, declare the handoff:
 
 ```markdown
-The **fleet-orchestrated-pipeline** skill handles all the detailed procedures —
-your job is to sequence the phases and keep the user informed at each checkpoint.
+The **diagnose-ado-build-failures** skill handles build log analysis and root-cause
+identification — your job is to sequence the diagnostic phases and present findings.
 ```
 
 This pattern keeps agents lean (orchestration) while skills provide the reference material (progressive disclosure). The agent says what to do; the skill says how.
 
-#### 5f. Model assignment (for agents that dispatch sub-agents)
+#### 5g. Model assignment (for agents that dispatch sub-agents)
 
 ```markdown
 ## Model Assignment
@@ -266,7 +310,7 @@ This pattern keeps agents lean (orchestration) while skills provide the referenc
 
 Include fallback guidance: "If a model is unavailable, fall back to Sonnet 4.6."
 
-#### 5g. State tracking
+#### 5h. State tracking
 
 Define SQL tables inline as the single source of truth. Include the schema, dashboard format, and lifecycle rules.
 
@@ -296,7 +340,7 @@ Key rules for state tracking:
 - **Store verbatim text** — so it can be recalled without re-fetching
 - **Record commit SHAs** — link items to the commits that address them
 
-#### 5h. Pre-execution checklists
+#### 5i. Pre-execution checklists
 
 Verification steps to run before critical actions (push, resolve, deploy).
 
@@ -310,7 +354,7 @@ Before pushing, verify:
 4. **Resolution plan** — which items get Fixed vs Won't Fix vs Closed
 ```
 
-#### 5i. Domain-specific reference sections
+#### 5j. Domain-specific reference sections
 
 Inline reference material specific to the agent's domain. These are lookup tables, status codes, category taxonomies, and similar reference data that the agent needs during execution.
 
@@ -322,7 +366,7 @@ Inline reference material specific to the agent's domain. These are lookup table
 - "Closed" = 4
 ```
 
-#### 5j. Sub-agent delegation
+#### 5k. Sub-agent delegation
 
 When the agent's workflow involves dispatching work to sub-agents via the `task` tool, include a section explaining the delegation pattern. The system prompt already covers `task` tool mechanics — the agent only needs to specify:
 
@@ -349,7 +393,7 @@ When drafting multiple replies:
 
 Keep it domain-specific — describe *your agent's* parallelism pattern, not generic `task` tool docs.
 
-#### 5k. Presentation style
+#### 5l. Presentation style
 
 How the agent should present information to the user.
 
@@ -362,7 +406,7 @@ How the agent should present information to the user.
 - **Include context with proposals** — verbatim + code + proposed action together
 ```
 
-#### 5l. Tips
+#### 5m. Tips
 
 A numbered list of **battle-tested lessons** from real usage sessions. Tips are the most valuable part of a mature agent — they encode what went wrong and how to prevent it.
 
@@ -380,7 +424,7 @@ A numbered list of **battle-tested lessons** from real usage sessions. Tips are 
 
 Start with 3–5 tips on initial creation. Expect to add 5–10 more after the first few real usage sessions.
 
-#### 5m. Anti-patterns (optional)
+#### 5n. Anti-patterns (optional)
 
 ❌-prefixed list of common mistakes, distinct from constraints (which are hard rules) and tips (which are positive guidance).
 
@@ -392,7 +436,7 @@ Start with 3–5 tips on initial creation. Expect to add 5–10 more after the f
 - ❌ Spending too much time on low-signal items instead of high-impact ones
 ```
 
-#### 5n. Prior instances (optional)
+#### 5o. Prior instances (optional)
 
 Table of past sessions where this agent was used, with key findings. Helps the agent learn from its own history.
 
@@ -405,7 +449,7 @@ Table of past sessions where this agent was used, with key findings. Helps the a
 | `4906737c` | 2026-03-13 | Second run: applied fixes to 8 files across 3 repos |
 ```
 
-#### 5o. Recovery/resume
+#### 5p. Recovery/resume
 
 What to do when context is lost (compaction, session restart).
 
@@ -414,7 +458,7 @@ On resume (context loss), query `work_items` table to rebuild state
 and present the recovery summary before continuing.
 ```
 
-#### 5p. Boundaries (optional)
+#### 5q. Boundaries (optional)
 
 Three-tier boundary system for nuanced guidance:
 
@@ -439,7 +483,8 @@ Three-tier boundary system for nuanced guidance:
 ✅ **File structure**:
 - [ ] File has `.agent.md` extension
 - [ ] Located in `~/.copilot/agents/` or `.github/agents/`
-- [ ] Single file — no supporting files in a subdirectory
+- [ ] Critical workflow instructions are inline in the `.agent.md`
+- [ ] Any referenced files use stable paths and clear "read when" instructions
 
 ✅ **YAML frontmatter**:
 - [ ] Opening `---` on line 1
@@ -457,7 +502,21 @@ Three-tier boundary system for nuanced guidance:
 - [ ] Tips are battle-tested (from real usage, not theoretical)
 - [ ] Instructions don't duplicate system message content
 - [ ] No broken markdown (unclosed code blocks, orphaned lists)
-- [ ] No progressive disclosure files — everything is inline
+- [ ] Progressive disclosure is deliberate: inline critical rules, reference large/phase-specific docs, and use skills for reusable reference procedures
+
+✅ **Quality gate**:
+- [ ] Instruction clarity: the workflow can be followed without guessing
+- [ ] Behavioral completeness: setup, normal path, branches, checkpoints, and exit conditions are covered
+- [ ] Trigger specificity: description names realistic user phrases and boundaries
+- [ ] Negative triggers: nearby workflows are routed to other agents/skills or no agent
+- [ ] Example quality: examples anchor the intended behavior
+- [ ] Progressive-disclosure fit: no unnecessary context load, no hidden critical rules
+- [ ] Safety boundaries: irreversible actions require explicit checkpoints
+- [ ] Tool fit: tools are sufficient without using VS Code-only aliases
+- [ ] Portability: personal, project, or plugin packaging supports any referenced files
+- [ ] Maintainability: repeated or volatile detail is factored into references or skills
+
+Use the quality gate to recommend one of: **keep**, **tighten triggers**, **split into agent + skill**, **move detail to referenced files**, **inline critical rules**, or **defer to an existing plugin**.
 
 ✅ **Testing**:
 - [ ] Restart CLI or start new session
@@ -502,6 +561,7 @@ These are already provided by the built-in system message:
 - Add explicit "DO NOT" constraints for common mistakes
 - Check if compaction is losing conversation history — agent instructions survive, but context doesn't
 - Add a recovery/resume section for post-compaction behavior
+- If the agent references external files, ensure the workflow tells it exactly when to read them before relying on their contents
 
 **Agent uses wrong tool names**:
 - Replace VS Code aliases with CLI-native names
