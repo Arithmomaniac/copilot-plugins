@@ -96,9 +96,6 @@
                 "review",
                 "planning"
             ],
-            "skills": [
-                "./skills/openspec-workflow"
-            ],
             "agents": [
                 "./agents/openspec-workflow"
             ]
@@ -173,9 +170,6 @@
                 "pipeline",
                 "code-review",
                 "swarm"
-            ],
-            "skills": [
-                "./skills/fleet-orchestrated-pipeline"
             ],
             "agents": [
                 "./agents/fleet-orchestrated-pipeline"
@@ -311,24 +305,6 @@
             ],
             "skills": [
                 "./skills/markdown-doc-writer"
-            ]
-        },
-        {
-            "name": "fleet-parallel-implementation",
-            "description": "Parallelize large implementations across multiple sub-agents. Use when there are 4+ independent todos, wave-based work, or when the user says 'fleet parallel', 'parallel implementation', 'dispatch agents', 'swarm this'.",
-            "source": "./",
-            "strict": false,
-            "version": "1.0.1",
-            "category": "developer-tools",
-            "keywords": [
-                "fleet",
-                "parallel",
-                "agents",
-                "implementation",
-                "swarm"
-            ],
-            "skills": [
-                "./skills/fleet-parallel-implementation"
             ]
         },
         {
