@@ -11,10 +11,10 @@
     "plugins": [
         {
             "name": "clipboard-markdown",
-            "description": "Copy analysis, summaries, or feedback to the clipboard as markdown or block-quoted markdown. Use when the user says 'copy to clipboard', 'copy as markdown', 'copy as quoted markdown', or asks to prepare text for pasting into PRs, docs, or chat.",
+            "description": "Copy explicitly requested content to the clipboard as markdown or block-quoted markdown. Use when the user asks to copy a URL, line, snippet, commands, or other content to the clipboard, including 'copy to clipboard', 'copy as markdown', or 'copy as quoted markdown'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.3",
+            "version": "1.0.4",
             "category": "productivity",
             "keywords": [
                 "clipboard",
@@ -80,24 +80,6 @@
             ],
             "skills": [
                 "./skills/goral-hagra"
-            ]
-        },
-        {
-            "name": "openspec-workflow",
-            "description": "Reference instructions for the OpenSpec spec-driven development workflow. Orchestrates multi-model review panel and generates proposal/specs/design/tasks artifacts. Not invoked directly — use the openspec-planner agent via /agent to run this workflow.",
-            "source": "./",
-            "strict": false,
-            "version": "1.0.1",
-            "category": "developer-tools",
-            "keywords": [
-                "spec",
-                "design",
-                "workflow",
-                "review",
-                "planning"
-            ],
-            "agents": [
-                "./agents/openspec-workflow"
             ]
         },
         {
@@ -274,7 +256,7 @@
             "description": "Pareto search over Artificial Analysis model benchmarks (quality / speed / price), restricted to Copilot CLI-available models, to choose the best default model for a task. Use when picking or refreshing model defaults per role (heavy reasoner vs fast/mechanical, reduce vs map, proposer vs rater), refreshing the tri-review model table, or answering 'which model should I use / what's the quality-speed tradeoff'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.4",
             "category": "developer-tools",
             "keywords": [
                 "artificial-analysis",
@@ -293,7 +275,7 @@
             "description": "Run an escalated, parallel three-model code review using Claude, GPT, and Gemini reviewers, then adjudicate consensus findings. Use when the user says 'tri-review', 'triple review', 'three model review', 'multi-model review', asks for a review with multiple models, or wants extra confidence on high-risk code changes.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "code-review",
@@ -305,6 +287,25 @@
             ],
             "skills": [
                 "./skills/tri-review"
+            ]
+        },
+        {
+            "name": "blind-review",
+            "description": "Review an artifact through fresh, deliberately constrained context as an uninvolved third party. Use when the user asks for a 'blind reviewer', 'blank reviewer', 'oblivious reviewer', 'fresh-eyes review', 'third-party review', 'review without context', or 'triple blind review'.",
+            "source": "./",
+            "strict": false,
+            "version": "1.0.0",
+            "category": "developer-tools",
+            "keywords": [
+                "review",
+                "blind-review",
+                "fresh-context",
+                "third-party",
+                "multi-model",
+                "artifact"
+            ],
+            "skills": [
+                "./skills/blind-review"
             ]
         },
         {
