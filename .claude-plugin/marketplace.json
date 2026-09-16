@@ -124,7 +124,7 @@
             "description": "Guide writing design documents through a staged workflow with quality gates. Agent orchestrates 4 stages (problem validation, design skeleton, decision resolution, editorial hardening). Companion skill provides reference formats and checklists. Use /agent design-doc-writer to start.",
             "source": "./",
             "strict": false,
-            "version": "1.0.4",
+            "version": "1.0.5",
             "category": "developer-tools",
             "keywords": [
                 "design",
@@ -146,7 +146,7 @@
             "description": "Audit installed skills for activation and execution effectiveness using recent session history. Detect missed, late, false-positive, or unused invocations, workflow-contract violations, user-corrected gaps, and churn/retry tax. Use for 'audit skills', 'evaluate skills', 'skill health check', or 'are my skills working'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.4",
+            "version": "1.0.5",
             "category": "developer-tools",
             "keywords": [
                 "audit",
@@ -218,7 +218,7 @@
             "description": "Pareto search over Artificial Analysis model benchmarks (quality / speed / price), restricted to Copilot CLI-available models, to choose the best default model for a task. Use when picking or refreshing model defaults per role (heavy reasoner vs fast/mechanical, reduce vs map, proposer vs rater), refreshing the tri-review model table, or answering 'which model should I use / what's the quality-speed tradeoff'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.5",
+            "version": "1.0.6",
             "category": "developer-tools",
             "keywords": [
                 "artificial-analysis",
@@ -237,7 +237,7 @@
             "description": "Run an escalated, parallel three-model code review using three model families, then adjudicate consensus findings. Use only when the user explicitly asks for a tri-review, triple/three-model/multi-model review, or an already-invoked workflow explicitly requires tri-review.",
             "source": "./",
             "strict": false,
-            "version": "1.0.3",
+            "version": "1.0.4",
             "category": "developer-tools",
             "keywords": [
                 "code-review",

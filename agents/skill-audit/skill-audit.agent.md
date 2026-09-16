@@ -404,7 +404,7 @@ ORDER BY tool_calls DESC LIMIT 20;
 
 **Scope (required):** read 2–3 candidates. A new-skill recommendation requires the **same workflow shape recurring across ≥2 sessions** — a single complex session is not a skill candidate. Cross-check the user has not already declined codifying it.
 
-Before treating candidates as user workflows, inspect `cst_sessions.workspace_path`, the first real user message, and session shape. Exclude benchmark runs, evaluation harnesses, factories, generated executor worktrees, and synthetic child-agent prompts. Paths under temporary harness directories such as `goat-harness-runs\...\executors\...` are automated executions, not evidence that the user needs a new skill. A one-turn session is not automatically synthetic, but it requires manual provenance verification.
+Before treating candidates as user workflows, inspect `cst_sessions.workspace_path`, the first real user message, and session shape. Exclude benchmark runs, evaluation harnesses, factories, generated executor worktrees, and synthetic child-agent prompts. Paths under temporary evaluation-harness executor directories are automated executions, not evidence that the user needs a new skill. A one-turn session is not automatically synthetic, but it requires manual provenance verification.
 
 Classify: **new-skill candidate** (recurring, generalizable) vs **one-off** (no recommendation).
 
@@ -605,12 +605,12 @@ Output: concise recommendations memo, then concrete SKILL.md edits.
 |---------|------|----------|
 | `0b8a32f6` | 2026-02-26 | First audit: 235 sessions/14d, Kusto retry tax #1, read-only Azure CLI wrapper bypass #2, ADO CLI truncation #3 |
 | `4906737c` | 2026-03-13 | Second audit: 152 sessions/14d, 23/34 skills used, applied fixes to 8 skills across 3 repos |
-| `ef5b6a9e` | 2026-04-19 | Third audit: 190 sessions/14d, 23/31 skills used. Found agent invocation instrumentation gap. Deleted ICM skills, proposed SMRP/ado-guidance fixes. |
+| `ef5b6a9e` | 2026-04-19 | Third audit: 190 sessions/14d, 23/31 skills used. Found agent invocation instrumentation gap. Deleted internal incident-management skills and proposed internal search and ADO-guidance fixes. |
 | `e9cb475b` | 2026-04-19 | Fourth audit: 194 sessions/14d, 24/29 skills used. Found a 60% Azure guidance/helper co-loading gap, false blocks from the read-only Azure CLI wrapper, and a session-store SQL error rate of 87%. Applied 13 changes across 3 repos. |
 | `2a849936` | 2026-05-26 | Fifth audit: 38 sessions/14d. Added false-positive/load-then-unused audit pass after finding `entra-edge-browser` over-triggered on generic browser requests. |
 | `ffa130ab` | 2026-06-04 | Sixth audit (previously unrecorded — backfilled). |
 | `3b9c7767` | 2026-06-25 | Seventh audit: 93 sessions/14d, 52 w/ skill activity. Azure guidance/helper co-loading recovered to 19% (from 60%); internal research-backend timeouts were already handled. Applied ado-guidance `--project` PR-by-ID gotcha. Self-improvements: added Phase 0 calibration, Phases 3e/3f/3g (ground-truth edit-demand signals), global tool error-rate step, Phase 1 freshness guard, Phase 6 commit-safety. |
-| `90e20771` | 2026-09-14 | Eighth audit: 974 sessions since prior audit, 215 w/ skill activity. After filtering built-in Copy X behavior, GOAT harness executor traffic, removed skills, and generic tool/session observations, applied five skill fixes and added active-inventory, automated-session, built-in-replacement, actionable-output, and explicit-vs-implicit invocation rules to this agent. |
+| `90e20771` | 2026-09-14 | Eighth audit: 974 sessions since prior audit, 215 w/ skill activity. After filtering built-in Copy X behavior, automated evaluation-harness executor traffic, removed skills, and generic tool/session observations, applied five skill fixes and added active-inventory, automated-session, built-in-replacement, actionable-output, and explicit-vs-implicit invocation rules to this agent. |
 | `a2d9f747` | 2026-09-16 | Follow-up audit: added semantic execution-contract analysis after blind-review loaded successfully but used wrong artifact roles or intended-reader context; added version-aware and skill-specific attribution safeguards. |
 
 ## Anti-patterns to avoid

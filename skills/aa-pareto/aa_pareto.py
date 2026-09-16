@@ -12,7 +12,7 @@ Usage:
     python aa_pareto.py --list-tasks             # show task-oriented benchmark profiles
     python aa_pareto.py --task knowledge-work    # AA-Briefcase quality and native task time
     python aa_pareto.py --task instruction-following
-    python aa_pareto.py --metric intelligence --speed-metric task-cost
+    python aa_pareto.py --metric intelligence --speed-metric task-time --cost-metric task-cost
     python aa_pareto.py --min-quality 55         # absolute floor for the "fast/light" pick
     python aa_pareto.py --all                    # do not restrict to Copilot CLI ids
     python aa_pareto.py --json                    # machine-readable output
@@ -180,6 +180,21 @@ QUALITY_COMPATIBILITY = {
         {"throughput", "ttft"},
         {"token-price", "ai-credits"},
     ),
+}
+
+QUALITY_DEFAULT_AXES = {
+    "coding": ("throughput", "ai-credits"),
+    "intelligence": ("task-time", "task-ai-credits"),
+    "briefcase": ("briefcase-turns", "briefcase-ai-credits"),
+    "briefcase-analysis": ("briefcase-turns", "briefcase-ai-credits"),
+    "briefcase-presentation": ("briefcase-turns", "briefcase-ai-credits"),
+    "ifbench": ("throughput", "ai-credits"),
+    "agentic": ("throughput", "ai-credits"),
+    "terminal": ("throughput", "ai-credits"),
+    "knowledge-work": ("gdpval-turns", "ai-credits"),
+    "factuality": ("throughput", "ai-credits"),
+    "multimodal": ("throughput", "ai-credits"),
+    "enterprise-ops": ("throughput", "ai-credits"),
 }
 
 # Copilot-CLI-available model ids → substrings that match their Artificial Analysis `name`.
@@ -543,9 +558,10 @@ def tri_review_rows(
         within_budget = [
             r for r in members if tri_review_elapsed(r) <= budget_seconds
         ]
-        normal_pool = within_budget or members
+        if not within_budget:
+            continue
         normal = max(
-            normal_pool,
+            within_budget,
             key=lambda r: (
                 r["coding"],
                 r["intelligence"],
@@ -559,7 +575,7 @@ def tri_review_rows(
         ]
         alternate_pool = distinct_model or [
             r for r in within_budget if r is not normal
-        ] or [r for r in members if r is not normal] or [normal]
+        ] or [normal]
         alternate = max(
             alternate_pool,
             key=lambda r: (
@@ -570,6 +586,50 @@ def tri_review_rows(
         )
         out.append((fam_label, normal, alternate, maximum))
     return out
+
+
+def resolve_axes(
+    task_name: str,
+    metric_override: str | None,
+    speed_override: str | None,
+    cost_override: str | None,
+) -> tuple[str, str, str, float]:
+    profile_metric, profile_speed, profile_cost, quality_floor_ratio = TASK_PROFILES[
+        task_name
+    ]
+    metric_name = metric_override or profile_metric
+    if metric_override:
+        default_speed, default_cost = QUALITY_DEFAULT_AXES[metric_name]
+    else:
+        default_speed, default_cost = profile_speed, profile_cost
+    return (
+        metric_name,
+        speed_override or default_speed,
+        cost_override or default_cost,
+        quality_floor_ratio,
+    )
+
+
+def cost_axis_with_fallback(
+    rows: list[dict],
+    cost_name: str,
+) -> tuple[str, str | None]:
+    cost_key, cost_label = COST_METRICS[cost_name]
+    current_coverage = sum((row.get(cost_key) or 0) > 0 for row in rows)
+    fallback_name = COST_FALLBACKS.get(cost_name)
+    if not fallback_name:
+        return cost_name, None
+
+    fallback_key, fallback_label = COST_METRICS[fallback_name]
+    fallback_coverage = sum((row.get(fallback_key) or 0) > 0 for row in rows)
+    if fallback_coverage <= current_coverage:
+        return cost_name, None
+
+    return (
+        fallback_name,
+        f"{cost_label} is unavailable for one or more candidates; "
+        f"using {fallback_label} for a comparable frontier",
+    )
 
 
 def picks(
@@ -770,12 +830,12 @@ def main() -> None:
             )
         return
 
-    profile_metric, profile_speed, profile_cost, quality_floor_ratio = TASK_PROFILES[
-        args.task
-    ]
-    metric_name = args.metric or profile_metric
-    speed_name = args.speed_metric or profile_speed
-    cost_name = args.cost_metric or profile_cost
+    metric_name, speed_name, cost_name, quality_floor_ratio = resolve_axes(
+        args.task,
+        args.metric,
+        args.speed_metric,
+        args.cost_metric,
+    )
     allowed_speed, allowed_cost = QUALITY_COMPATIBILITY[metric_name]
     if speed_name not in allowed_speed:
         ap.error(
@@ -816,27 +876,16 @@ def main() -> None:
         rows = [r for r in rows if r.get("copilot_id") in wanted]
 
     requested_cost_name = cost_name
-    cost_key, cost_label = COST_METRICS[cost_name]
-    cost_fallback_reason = None
     quality_speed_rows = [
         r
         for r in rows
         if (r.get(metric) or 0) > 0 and (r.get(speed_key) or 0) > 0
     ]
-    if quality_speed_rows and not all(
-        (r.get(cost_key) or 0) > 0 for r in quality_speed_rows
-    ):
-        fallback_name = COST_FALLBACKS.get(cost_name)
-        if fallback_name:
-            fallback_key, fallback_label = COST_METRICS[fallback_name]
-            if all((r.get(fallback_key) or 0) > 0 for r in quality_speed_rows):
-                cost_fallback_reason = (
-                    f"{cost_label} is unavailable for one or more candidates; "
-                    f"using {fallback_label} for a comparable frontier"
-                )
-                cost_name = fallback_name
-                cost_key = fallback_key
-                cost_label = fallback_label
+    cost_name, cost_fallback_reason = cost_axis_with_fallback(
+        quality_speed_rows,
+        cost_name,
+    )
+    cost_key, cost_label = COST_METRICS[cost_name]
 
     if args.tri_review:
         if args.tri_review_budget <= 0:

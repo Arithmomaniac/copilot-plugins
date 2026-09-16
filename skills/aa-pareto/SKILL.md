@@ -56,11 +56,11 @@ python aa_pareto.py --task knowledge-work
 python aa_pareto.py --task instruction-following
 python aa_pareto.py --task office-automation
 python aa_pareto.py --task factual-research
-python aa_pareto.py --metric briefcase-analysis --speed-metric briefcase-turns
-python aa_pareto.py --task knowledge-work --speed-metric briefcase-cost
+python aa_pareto.py --metric briefcase-analysis --speed-metric briefcase-turns --cost-metric briefcase-ai-credits
+python aa_pareto.py --task knowledge-work --cost-metric briefcase-cost
 python aa_pareto.py --metric intelligence --speed-metric task-time --cost-metric task-ai-credits
 python aa_pareto.py --task coding --speed-metric task-elapsed --speed-weight 1 --cost-weight 2
-python aa_pareto.py --task coding --speed-metric task-elapsed --strictly-better-than gpt-5.4-mini@low
+python aa_pareto.py --task coding --speed-metric task-elapsed --strictly-better-than gpt-5.4-mini@xhigh
 python aa_pareto.py --task professional-output --speed-metric gdpval-turns
 python aa_pareto.py --min-quality 1400 # optional absolute floor
 python aa_pareto.py --models "gpt-6-astra,gpt-5.6-sol,gpt-5.6-luna"

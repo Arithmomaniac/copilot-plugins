@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+import subprocess
+import sys
 import unittest
 from unittest import mock
 
@@ -361,6 +365,133 @@ class TriReviewRowsTests(unittest.TestCase):
                 "grok-4.5",
             ],
             [alternate["copilot_id"] for _, _, alternate, _ in recommendations],
+        )
+
+    def test_keeps_normal_and_alternate_within_budget(self) -> None:
+        rows = [
+            self.row("grok-4.6", 76.0, 600.0),
+            self.row("grok-4.6", 66.0, 180.0),
+        ]
+
+        recommendations = aa_pareto.tri_review_rows(rows, budget_seconds=300.0)
+
+        _, normal, alternate, maximum = recommendations[0]
+        self.assertLessEqual(aa_pareto.tri_review_elapsed(normal), 300.0)
+        self.assertLessEqual(aa_pareto.tri_review_elapsed(alternate), 300.0)
+        self.assertEqual(normal, alternate)
+        self.assertGreater(aa_pareto.tri_review_elapsed(maximum), 300.0)
+
+    def test_omits_family_without_a_budget_eligible_model(self) -> None:
+        rows = [self.row("grok-4.6", 76.0, 600.0)]
+
+        recommendations = aa_pareto.tri_review_rows(rows, budget_seconds=300.0)
+
+        self.assertEqual([], recommendations)
+
+
+class AxisResolutionTests(unittest.TestCase):
+    def test_metric_override_uses_compatible_default_axes(self) -> None:
+        self.assertEqual(
+            ("intelligence", "task-time", "task-ai-credits", 0.70),
+            aa_pareto.resolve_axes("coding", "intelligence", None, None),
+        )
+        self.assertEqual(
+            ("briefcase", "briefcase-turns", "briefcase-ai-credits", 0.70),
+            aa_pareto.resolve_axes("coding", "briefcase", None, None),
+        )
+
+    def test_explicit_axis_overrides_win(self) -> None:
+        self.assertEqual(
+            ("intelligence", "task-time", "task-cost", 0.70),
+            aa_pareto.resolve_axes(
+                "coding",
+                "intelligence",
+                "task-time",
+                "task-cost",
+            ),
+        )
+
+
+class CostFallbackTests(unittest.TestCase):
+    def test_uses_fallback_with_better_candidate_coverage(self) -> None:
+        rows = [
+            {"copilot_ai_credits": 0, "token_price": 2.0},
+            {"copilot_ai_credits": 0, "token_price": 0},
+        ]
+
+        cost_name, reason = aa_pareto.cost_axis_with_fallback(
+            rows,
+            "ai-credits",
+        )
+
+        self.assertEqual("token-price", cost_name)
+        self.assertIsNotNone(reason)
+
+    def test_keeps_requested_cost_when_fallback_has_no_more_coverage(self) -> None:
+        rows = [
+            {"copilot_ai_credits": 1.0, "token_price": 2.0},
+            {"copilot_ai_credits": 0, "token_price": 0},
+        ]
+
+        cost_name, reason = aa_pareto.cost_axis_with_fallback(
+            rows,
+            "ai-credits",
+        )
+
+        self.assertEqual("ai-credits", cost_name)
+        self.assertIsNone(reason)
+
+
+class CliIntegrationTests(unittest.TestCase):
+    @staticmethod
+    def run_cli(*arguments: str) -> dict:
+        script = Path(__file__).with_name("aa_pareto.py")
+        result = subprocess.run(
+            [sys.executable, str(script), *arguments, "--json"],
+            cwd=script.parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise AssertionError(result.stderr or result.stdout)
+        return json.loads(result.stdout)
+
+    def test_briefcase_analysis_example(self) -> None:
+        output = self.run_cli(
+            "--metric",
+            "briefcase-analysis",
+            "--speed-metric",
+            "briefcase-turns",
+            "--cost-metric",
+            "briefcase-ai-credits",
+        )
+
+        self.assertEqual("briefcase-analysis", output["metric"])
+
+    def test_knowledge_work_cost_override_example(self) -> None:
+        output = self.run_cli(
+            "--task",
+            "knowledge-work",
+            "--cost-metric",
+            "briefcase-cost",
+        )
+
+        self.assertEqual("briefcase-cost", output["cost_metric"])
+
+    def test_strict_comparison_example(self) -> None:
+        output = self.run_cli(
+            "--task",
+            "coding",
+            "--speed-metric",
+            "task-elapsed",
+            "--strictly-better-than",
+            "gpt-5.4-mini@xhigh",
+        )
+
+        self.assertEqual(
+            "gpt-5.4-mini (xhigh)",
+            output["strictly_better_than"],
         )
 
 

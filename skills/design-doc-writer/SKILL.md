@@ -21,10 +21,11 @@ Do not use this skill for general Markdown documentation such as how-to guides, 
 
 ## Style Rules for All LLM-Generated Prose
 
-Write the prose of a design document in **Simple English**, using the `simple-english`
-skill. Load that skill before drafting. A design document is descriptive text, so the limit
-is 25 words per sentence and 6 sentences per paragraph. Procedural passages, such as a
-migration step or a runbook line, take the 20-word limit instead.
+Write the prose of a design document in **Simple English**. If the `simple-english` skill is
+installed and discoverable, load it before drafting. Otherwise apply the rules below and the
+[Simple English Gate](checklist.md#simple-english-gate) directly. A design document is
+descriptive text, so the limit is 25 words per sentence and 6 sentences per paragraph.
+Procedural passages, such as a migration step or a runbook line, take the 20-word limit instead.
 
 The rules below are the design-document additions to that baseline.
 
@@ -47,7 +48,8 @@ Those are technical names, and the word limits count each one as a single word.
 
 ## Self-Check Before Delivery
 
-Run the `simple-english` self-check over the finished draft, then verify these:
+If the `simple-english` skill is available, run its self-check over the finished draft.
+Otherwise run the [Simple English Gate](checklist.md#simple-english-gate). Then verify these:
 
 - Every guarantee in the document is true as written. Read each caveat against it.
 - Every claim attributed to a source carries a quote and a file name.
