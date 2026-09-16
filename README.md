@@ -30,10 +30,8 @@ npx skills-installer install @arithmomaniac/copilot-plugins/skill-name
 | **create-worktree** | Create git branches and worktrees from context |
 | **git-branch-cleanup** | Clean up stale git branches and worktrees |
 | **goral-hagra** | Torah/Tanakh verse guidance via Sefaria API |
-| **openspec-workflow** | Spec-driven development workflow with multi-model review |
 | **skill-writer** | Guide for authoring Claude Code Agent Skills |
 | **skills-discovery** | Search and install skills from the claude-plugins.dev registry |
-| **azsafe** | Safe read-only Azure CLI proxy |
 
 ## Contributing
 

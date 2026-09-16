@@ -40,7 +40,7 @@ if (-not $stagedFiles) {
 }
 
 # ── Identify affected skill/agent directories ─────────────────────────────────
-$affectedPaths = @{}  # key = relative dir path (e.g., "./skills/azsafe"), value = type
+$affectedPaths = @{}  # key = relative dir path (e.g., "./skills/example-skill"), value = type
 
 foreach ($file in $stagedFiles) {
     $normalized = $file -replace '\\', '/'

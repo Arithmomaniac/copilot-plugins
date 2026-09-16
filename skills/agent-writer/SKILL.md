@@ -8,6 +8,8 @@ description: >-
   while skills inject triggered reference knowledge into the main agent's context.
 ---
 
+> Created/edited by GitHub Copilot with human review/feedback by avilevin.
+
 # Agent Writer
 
 Create well-structured `.agent.md` files for GitHub Copilot CLI custom agents. Agents are workflow orchestrators — they define a role, a phased workflow with checkpoints, and battle-tested tips learned from real usage.
@@ -301,14 +303,14 @@ This pattern keeps agents lean (orchestration) while skills provide the referenc
 
 | Role | Model | Reason |
 |------|-------|--------|
-| This orchestrator | Claude Sonnet 4.6 | Fast coordination |
-| Implementation agents | Claude Opus 4.6 | Deep reasoning |
-| Review agent 1 | Claude Sonnet 4.6 | Architectural concerns |
-| Review agent 2 | GPT-5.4 | Logical correctness |
-| Review agent 3 | Gemini 3 Pro | Edge cases |
+| This orchestrator | Inherit the parent model | Coordination does not need an override |
+| Implementation agents | Current `aa-pareto --task coding` quality-at-speed pick | Parallel coding follows the live frontier |
+| Review agents | Current `tri-review` selections | Family-diverse review follows the maintained review policy |
 ```
 
-Include fallback guidance: "If a model is unavailable, fall back to Sonnet 4.6."
+For agents that dispatch sub-agents, instruct them to refresh the relevant `aa-pareto --task`
+profile once per batch and pin the returned model plus effort for that batch. Include fallback
+guidance based on the next suitable Pareto-frontier point, not a permanently named model.
 
 #### 5h. State tracking
 

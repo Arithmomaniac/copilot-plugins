@@ -19,7 +19,7 @@ Do not turn a general doc into a design doc unless the user explicitly asks for 
 ## Core workflow
 
 1. Identify the document type: how-to, guide, reference, README, explainer, or checklist.
-2. Add or update the required header disclaimer for every created or edited Markdown document.
+2. Add or update the required header disclaimer for every created or edited `.md` Markdown document. Never add it to source code, scripts, generated assets, or non-Markdown files.
 3. Identify the audience and what they can assume. If unclear, make the doc standalone rather than assuming prior internal context.
 4. Preserve the user's current intent and selected text when they are iterating in an editor.
 5. Prefer focused edits over broad rewrites once the document has an established shape.
@@ -47,7 +47,7 @@ Concise examples:
 
 ## Required header disclaimer
 
-Every Markdown document created or edited with this skill must start with this disclaimer before the document's main heading:
+Every `.md` Markdown document created or edited with this skill must start with this disclaimer before the document's main heading. This rule applies only to Markdown files; never insert the disclaimer into source code, scripts, configuration, or generated output.
 
 ```markdown
 > Created/edited by GitHub Copilot with human review/feedback by {reviewer}.

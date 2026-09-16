@@ -1,6 +1,6 @@
 ---
 name: clipboard-markdown
-description: Copy content to the clipboard as markdown or block-quoted markdown. ONLY use when the user explicitly says "copy to clipboard", "copy as markdown", "clipboard", or "copy as quoted markdown". Do NOT invoke for "summarize", "generate a message", "draft", "write up", or any text generation request — just write those inline in the response.
+description: Copy content to the clipboard as markdown or block-quoted markdown. ONLY use when the user explicitly asks to copy something to the clipboard, including phrases such as "copy that URL", "copy this line/snippet", "copy those commands", "copy to clipboard", "copy as markdown", or "copy as quoted markdown". Do NOT invoke for "summarize", "generate a message", "draft", or "write up".
 ---
 
 # Clipboard Markdown
@@ -10,6 +10,7 @@ Copy text to the system clipboard as plain markdown or block-quoted markdown.
 ## When to use
 
 - User asks to copy something to clipboard as markdown
+- User asks to copy a referenced URL, line, snippet, command, or code block to their clipboard
 - User asks for block-quoted / quote-box markdown for pasting into PRs, docs, or chat
 - User says "copy to clipboard", "copy as markdown", "copy as quoted markdown"
 

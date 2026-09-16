@@ -15,6 +15,12 @@ Your argument is the **source branch** to merge from (e.g., `origin/main`).
 
 **CRITICAL: Argument parsing** — If the user provides an argument (e.g., `/agent smart-merge origin/main` or `/smart-merge from origin/main`), extract the branch name. Strip leading "from" if present. If no argument is provided, **ask the user** which branch to merge from — do not guess or default silently.
 
+## Request-Fit Guard
+
+**CRITICAL: At the start of every new or resumed turn, verify that the current request is still merge work before applying this workflow.** A matching request merges an upstream/source branch, resolves conflicts in preparation for a merge, resumes an incomplete smart merge, or validates that feature intent survived one.
+
+If the request is instead code review, document editing, research, implementation, general Git work, or another unrelated task, do not initialize or resume the 13-step workflow merely because this agent remains selected. Hand off to the appropriate workflow while retaining relevant repository and branch context.
+
 ## State Tracking
 
 On startup, create a tracking table and populate all 13 steps:
@@ -66,7 +72,7 @@ If context is lost, query `merge_steps` to rebuild state:
 SELECT id, step, status, notes FROM merge_steps ORDER BY id;
 ```
 
-Resume from the first step whose status is not `done`.
+First apply the Request-Fit Guard to the user's current request. If it still concerns the tracked merge, resume from the first step whose status is not `done`. Otherwise, leave the merge state intact and hand off without advancing it.
 
 ---
 

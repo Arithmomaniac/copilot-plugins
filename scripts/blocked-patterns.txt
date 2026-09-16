@@ -8,6 +8,10 @@
 CloudMine
 CoreIdentity
 ES-?Chat
+goat-harness-runs
+GOAT harness
+\bICM\b
+\bSMRP\b
 
 # ── Internal hostnames ─────────────────────────────────────────────────────────
 \.corp\.microsoft\.com
