@@ -14,7 +14,7 @@
             "description": "Copy explicitly requested content to the clipboard as markdown or block-quoted markdown. Use when the user asks to copy a URL, line, snippet, commands, or other content to the clipboard, including 'copy to clipboard', 'copy as markdown', or 'copy as quoted markdown'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.4",
+            "version": "1.0.5",
             "category": "productivity",
             "keywords": [
                 "clipboard",
@@ -120,49 +120,11 @@
             ]
         },
         {
-            "name": "azsafe",
-            "description": "Safe Azure CLI proxy that only allows read-only commands. Use azsafe.ps1 for read-only operations (list, show, get, etc.) and use az directly for write operations when needed.",
-            "source": "./",
-            "strict": false,
-            "version": "1.0.3",
-            "category": "developer-tools",
-            "keywords": [
-                "azure",
-                "cli",
-                "safety",
-                "read-only",
-                "proxy"
-            ],
-            "skills": [
-                "./skills/azsafe"
-            ]
-        },
-        {
-            "name": "fleet-orchestrated-pipeline",
-            "description": "Decompose large work into a DAG and execute across parallel worktrees with fleet agents, multi-model code review, auto-applied fixes, and streaming manual review. Integrates with plan mode — plan first, then switch to fleet orchestrator. Use when the user says 'fleet orchestrate', 'swarm this work', 'parallel worktrees', or has a large body of work to split into parallel PR-sized tasks.",
-            "source": "./",
-            "strict": false,
-            "version": "1.0.2",
-            "category": "developer-tools",
-            "keywords": [
-                "fleet",
-                "worktree",
-                "parallel",
-                "dag",
-                "pipeline",
-                "code-review",
-                "swarm"
-            ],
-            "agents": [
-                "./agents/fleet-orchestrated-pipeline"
-            ]
-        },
-        {
             "name": "design-doc-writer",
             "description": "Guide writing design documents through a staged workflow with quality gates. Agent orchestrates 4 stages (problem validation, design skeleton, decision resolution, editorial hardening). Companion skill provides reference formats and checklists. Use /agent design-doc-writer to start.",
             "source": "./",
             "strict": false,
-            "version": "1.0.3",
+            "version": "1.0.4",
             "category": "developer-tools",
             "keywords": [
                 "design",
@@ -181,10 +143,10 @@
         },
         {
             "name": "skill-audit",
-            "description": "Audit installed skills for effectiveness by analyzing recent session history for missed invocations, churn/retry tax, and trigger-phrase gaps. Use when the user says 'audit skills', 'evaluate skills', 'check skill effectiveness', 'skill health check', or 'are my skills working'.",
+            "description": "Audit installed skills for activation and execution effectiveness using recent session history. Detect missed, late, false-positive, or unused invocations, workflow-contract violations, user-corrected gaps, and churn/retry tax. Use for 'audit skills', 'evaluate skills', 'skill health check', or 'are my skills working'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.3",
             "category": "developer-tools",
             "keywords": [
                 "audit",
@@ -222,7 +184,7 @@
             "description": "Merge from a branch while preserving feature intent, with adaptive validation scaled to merge complexity. Assesses scope after merge to skip unnecessary steps (with user confirmation). Use /agent smart-merge with the source branch.",
             "source": "./",
             "strict": false,
-            "version": "1.1.1",
+            "version": "1.1.2",
             "category": "developer-tools",
             "keywords": [
                 "git",
@@ -239,7 +201,7 @@
             "description": "Guide users through creating and updating custom Agent files (.agent.md) for Copilot CLI. Distinct from skill-writer which handles SKILL.md files.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "agent",
@@ -256,7 +218,7 @@
             "description": "Pareto search over Artificial Analysis model benchmarks (quality / speed / price), restricted to Copilot CLI-available models, to choose the best default model for a task. Use when picking or refreshing model defaults per role (heavy reasoner vs fast/mechanical, reduce vs map, proposer vs rater), refreshing the tri-review model table, or answering 'which model should I use / what's the quality-speed tradeoff'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.4",
+            "version": "1.0.5",
             "category": "developer-tools",
             "keywords": [
                 "artificial-analysis",
@@ -272,10 +234,10 @@
         },
         {
             "name": "tri-review",
-            "description": "Run an escalated, parallel three-model code review using Claude, GPT, and Gemini reviewers, then adjudicate consensus findings. Use when the user says 'tri-review', 'triple review', 'three model review', 'multi-model review', asks for a review with multiple models, or wants extra confidence on high-risk code changes.",
+            "description": "Run an escalated, parallel three-model code review using three model families, then adjudicate consensus findings. Use only when the user explicitly asks for a tri-review, triple/three-model/multi-model review, or an already-invoked workflow explicitly requires tri-review.",
             "source": "./",
             "strict": false,
-            "version": "1.0.2",
+            "version": "1.0.3",
             "category": "developer-tools",
             "keywords": [
                 "code-review",
@@ -294,7 +256,7 @@
             "description": "Review an artifact through fresh, deliberately constrained context as an uninvolved third party. Use when the user asks for a 'blind reviewer', 'blank reviewer', 'oblivious reviewer', 'fresh-eyes review', 'third-party review', 'review without context', or 'triple blind review'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.0",
+            "version": "1.0.1",
             "category": "developer-tools",
             "keywords": [
                 "review",
@@ -313,7 +275,7 @@
             "description": "Write and revise Markdown documentation that is not a formal design doc: how-to guides, pattern guides, READMEs, reference docs, team docs, and source-backed explanatory docs. Use when the user asks to write, edit, restructure, tighten, or review a Markdown document, especially with tables, lists, examples, code samples, headings, and tone/flow feedback. Do not use for formal design docs, RFCs, tech specs, or architecture proposals; use design-doc-writer for those.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "productivity",
             "keywords": [
                 "markdown",
@@ -332,7 +294,7 @@
             "description": "Use litellm with the GitHub Copilot provider for LLM calls, structured output, tool calling, and model selection. Covers model discovery, Copilot multipliers, and benchmarks.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "litellm",
@@ -350,7 +312,7 @@
             "description": "Ensures every code change goes through the full quality gate before merge. Use when the user says 'approve and merge', 'PR process', 'quality gate', 'create PR', or 'submit PR'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.1",
+            "version": "1.0.2",
             "category": "developer-tools",
             "keywords": [
                 "pr",

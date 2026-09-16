@@ -26,6 +26,12 @@ Verify these before advancing to the next stage. Items are ordered by importance
 ## Stage 2 → Stage 3 Gate
 
 - [ ] Each DD has: options with 1–2 sentence descriptions, pros/cons (≤3 each), choice or "unresolved + what resolves it"
+- [ ] **The body is 75–85% of the document and the Design Decisions section is 10–20%.** Over 25% means the body is starving
+- [ ] **Every decision is contested** — a competent engineer could have picked another option. Uncontested conclusions live in the body
+- [ ] **No decision entry is the only place an architectural principle appears**
+- [ ] **A reader who stops before Design Decisions still understands the architecture and the contracts**
+- [ ] No decision entry runs longer than about 15 lines
+- [ ] Contracts are a body section, not an appendix. An implementer can start from them
 - [ ] Each DD links back to Problem Statement entries it solves
 - [ ] Phases name which DDs they implement
 - [ ] Phase detail is proportional to confidence (uncertain phases = 1–2 sentences, not step tables)
@@ -41,6 +47,17 @@ Verify these before advancing to the next stage. Items are ordered by importance
 - [ ] Status markers present: `[WIP]` in title, ✅/⚠️ on decisions
 - [ ] Terms defined on first use
 - [ ] A teammate opening this doc cold can understand the Summary + Problem Statement in <2 minutes
+
+## Simple English Gate
+
+Run this with the Stage 3 completion gate. It applies to every stage that produces prose.
+
+- [ ] No sentence over 25 words in descriptive text, or over 20 words in a procedural step. Code and quoted text count as one word each.
+- [ ] No `should`, `would`, `may`, `might`, or `could`. Requirements take `must`; possibilities take `can`.
+- [ ] No contractions, no semicolons, no `e.g.`, `i.e.`, or `etc.`
+- [ ] Every `if` and `when` clause stands before its main clause.
+- [ ] One word for one concept across the whole document. Check the usual rotations: check/verify/confirm/validate, config/settings/options, run/execute/invoke.
+- [ ] Each paragraph holds one topic and at most six sentences.
 
 ## Common Rejection Reasons (things reviewers will flag)
 

@@ -3,6 +3,8 @@ name: litellm-copilot
 description: Use litellm with the GitHub Copilot provider for LLM calls, structured output, tool calling, and model selection. Covers litellm vs Copilot SDK, json_schema, tool_choice, text_format, model discovery, Copilot multipliers, and premium requests. Triggers on "litellm", "github_copilot", "GitHub Copilot provider", "structured output", "json_schema", "tool_choice", "text_format", "model selection", "tool calling", and "premium requests". Do not use for generic Copilot CLI, Docker/container debugging, session-store, audit, alias, or tool-install work.
 ---
 
+> Created/edited by GitHub Copilot with human review/feedback by avilevin.
+
 # LiteLLM with GitHub Copilot Provider
 
 Use `litellm` to call LLMs through the GitHub Copilot proxy with structured output, tool calling, and multi-model support. The `github_copilot/` provider authenticates via OAuth device flow and routes through the same API as Copilot Chat.
@@ -58,9 +60,9 @@ Token cached at `~/.config/litellm/github_copilot/api-key.json`.
 ```python
 import litellm
 
-# Simple completion
+# Example only: select production defaults with the aa-pareto task profile.
 resp = litellm.completion(
-    model="github_copilot/gpt-5.4-mini",
+    model="github_copilot/gpt-5.6-sol",
     messages=[{"role": "user", "content": "Hello!"}],
 )
 print(resp.choices[0].message.content)
@@ -82,16 +84,16 @@ class Rating(BaseModel):
     surprise: int     # 1-10
 
 resp = litellm.completion(
-    model="github_copilot/gpt-5.2",
+    model="github_copilot/gpt-5.6-sol",
     messages=[{"role": "user", "content": "Rate this text..."}],
     response_format=Rating,  # Pydantic model → native json_schema
 )
 result = Rating.model_validate_json(resp.choices[0].message.content)
 ```
 
-**Works with:** gpt-5-mini, gpt-5.1, gpt-5.2, gpt-4.1, gpt-4o, o3, o4
+**Current examples:** gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.3-codex, gpt-5-mini
 
-### Strategy 2: `tool_choice` (Claude, Gemini, non-OpenAI)
+### Strategy 2: `tool_choice` (Claude, Gemini, and other non-OpenAI models)
 
 The Copilot proxy **strips `response_format`** for non-OpenAI models — it returns empty body or prose. Use forced function calling instead (same pattern as LangChain's `with_structured_output()`):
 
@@ -123,7 +125,7 @@ parsed = json.loads(raw) if isinstance(raw, str) else raw
 result = Rating.model_validate(parsed)
 ```
 
-**Works with:** claude-sonnet-4.6, claude-haiku-4.5, claude-opus-4.6, gemini-2.5-pro, gemini-3-flash
+**Current examples:** claude-sonnet-5, claude-opus-5, gemini-3.5-flash, gemini-3.6-flash, gemini-3.7-flash, gemini-3.8-flash, grok-4.6
 
 ### Strategy 3: `text_format` (gpt-5.4 family on /responses)
 
@@ -152,7 +154,7 @@ for item in resp.output:
                 result = Rating.model_validate_json(c.text)
 ```
 
-**Works with:** gpt-5.4-mini, gpt-5.4, gpt-5.4-nano
+**Works with:** gpt-5.4-mini, gpt-5.4
 
 ### Auto-Dispatch Pattern
 
@@ -160,7 +162,7 @@ Combine all three in one function:
 
 ```python
 def structured_completion(model: str, messages: list, schema: type[BaseModel], **kwargs) -> BaseModel:
-    RESPONSES_ONLY = {"gpt-5.4-mini", "gpt-5.4", "gpt-5.4-nano"}
+    RESPONSES_ONLY = {"gpt-5.4-mini", "gpt-5.4"}
     short = model.rsplit("/", 1)[-1] if "/" in model else model
     model_lower = model.lower()
 
@@ -179,13 +181,13 @@ def structured_completion(model: str, messages: list, schema: type[BaseModel], *
                     if hasattr(c, "text"):
                         return schema.model_validate_json(c.text)
 
-    elif "gpt" in model_lower or "o3" in model_lower or "o4" in model_lower:
+    elif "gpt" in model_lower:
         # Strategy 1: native json_schema
         resp = litellm.completion(model=model, messages=messages, response_format=schema, **kwargs)
         return schema.model_validate_json(resp.choices[0].message.content)
 
     else:
-        # Strategy 2: tool_choice (Claude, Gemini, etc.)
+        # Strategy 2: tool_choice (Claude, Gemini, and other non-OpenAI models)
         tool = {"type": "function", "function": {
             "name": schema.__name__,
             "description": f"Return a {schema.__name__} object.",
@@ -220,18 +222,9 @@ for m in sorted(models["data"], key=lambda x: x["id"]):
     print(m["id"])
 ```
 
-### Copilot Model Multipliers (Premium Requests)
+### Copilot Model Billing
 
-Models consume premium requests at different rates. With **unlimited GHCP**, optimize for quality×speed, not cost.
-
-| Multiplier | Models | Notes |
-|------------|--------|-------|
-| **0× (free)** | gpt-5-mini, gpt-4.1, gpt-4o | Always available, no premium cost |
-| **0.33×** | gpt-5.4-mini, claude-haiku-4.5, gemini-3-flash | Cheap, good for batch work |
-| **1×** | gpt-5.4, gpt-5.1, gpt-5.2, claude-sonnet-4/4.5/4.6, gemini-2.5-pro | Standard |
-| **3×** | claude-opus-4.5, claude-opus-4.6 | Expensive, rarely worth it for programmatic use |
-
-**For unlimited GHCP plans:** Multiplier is irrelevant — pick by quality and speed.
+Do not maintain a static multiplier table here. Read current availability and `billing.tokenPrices` from `models.list`, then use `aa-pareto` for task-specific quality and efficiency comparisons. Copilot premium-request multipliers and token rates can change independently of provider list pricing.
 
 ### Artificial Analysis Benchmarks → delegated to the `aa-pareto` skill
 
@@ -274,7 +267,7 @@ tools = [{
 }]
 
 resp = litellm.completion(
-    model="github_copilot/gpt-5.4-mini",
+    model="github_copilot/gpt-5.6-sol",
     messages=[{"role": "user", "content": "What's the weather in Tokyo?"}],
     tools=tools,
 )

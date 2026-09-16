@@ -21,12 +21,37 @@ Do not use this skill for general Markdown documentation such as how-to guides, 
 
 ## Style Rules for All LLM-Generated Prose
 
-Every section must be:
+Write the prose of a design document in **Simple English**, using the `simple-english`
+skill. Load that skill before drafting. A design document is descriptive text, so the limit
+is 25 words per sentence and 6 sentences per paragraph. Procedural passages, such as a
+migration step or a runbook line, take the 20-word limit instead.
+
+The rules below are the design-document additions to that baseline.
 
 - **Succinct** — one sentence where one suffices. No hedge-padding ("it's worth noting that..."), no throat-clearing.
 - **Human-readable** — a teammate opening the doc cold understands each section. Define terms on first use. No acronym soup.
 - **Unambiguous** — prefer tables and diagrams over narrative. Each sentence has exactly one interpretation. Flag genuine ambiguity explicitly ("this depends on D2 resolution") rather than hiding it in soft language.
 - **Churn-aware** — some iteration is healthy. Decisions and open questions evolve. But the *format* they evolve within is stable from the start.
+
+Three Simple English rules matter most in a design document, because breaking them creates
+review churn:
+
+| Rule | In a design document |
+|---|---|
+| One word, one concept | Fix the vocabulary before drafting. A design document that calls one thing by two names produces reviewers who argue about two things. |
+| Approved modals only: `can`, `will`, `must` | `should` reads as optional and hides whether a decision binds. A requirement takes `must`. A possibility takes `can`. Delete a recommendation or state it as a fact. |
+| Conditions first | Write "If the build fails, read the log", not the reverse. A reader who stops mid-sentence still knows when the clause applies. |
+
+Leave code, identifiers, file paths, quoted errors, and product names exactly as they are.
+Those are technical names, and the word limits count each one as a single word.
+
+## Self-Check Before Delivery
+
+Run the `simple-english` self-check over the finished draft, then verify these:
+
+- Every guarantee in the document is true as written. Read each caveat against it.
+- Every claim attributed to a source carries a quote and a file name.
+- No section refers to an earlier draft of the same document.
 
 ## Anti-Patterns
 
@@ -40,6 +65,9 @@ Every section must be:
 | A6 | Orthogonal creep | Adjacent concerns sneak in | Scope section names exclusions; Problem → Decision traceability catches orphans |
 | A7 | Decision format instability | Dilemmas → merged into Phases → extracted back out | Decision format (`### D1 — Title`) is fixed from Stage 1 |
 | A8 | Narrative where structure suffices | 200 lines of prose replaced by one table | Style rule: prefer tables and diagrams |
+| A9 | Decisions crowding out the body | The Design Decisions section carries the architecture, so a reader cannot understand the system without reading ten option lists | Body target 75–85%; decisions 10–20%. Every architectural principle states itself in the body first |
+| A10 | Uncontested choices written as decisions | Option B exists only to be rejected, and no engineer would have picked it | A decision needs a real alternative. If the answer follows from the requirements, state it in the body |
+| A11 | Contract in the appendix | An implementer cannot start, because the field shapes and encodings sit behind the references | Contracts are a body section |
 
 ## Patterns
 

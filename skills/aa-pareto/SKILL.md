@@ -3,14 +3,15 @@ name: aa-pareto
 description: Pareto search over Artificial Analysis model benchmarks (quality / speed / price), restricted to Copilot CLI–available models, to choose the best default model for a task. Use when picking or refreshing model defaults per role (heavy reasoner vs fast/mechanical, reduce vs map, proposer vs rater), refreshing the tri-review model table, or answering "which model should I use / what's the quality-speed tradeoff". Triggers on "artificial analysis", "AA pareto", "model pareto", "quality/speed tradeoff", "best model for", "which model should I use", "refresh model table", "fastest model above quality X".
 ---
 
-> Created/edited by GitHub Copilot with human review/feedback by avilevin.
-
 # Artificial Analysis Pareto Search (Copilot models)
 
-Recommend a Copilot model and reasoning effort for a **specific task type**. The skill maps the
-task to the most relevant Artificial Analysis quality benchmark and an appropriate efficiency
-axis, then finds the Pareto frontier and role-oriented picks. `build_report.py` generates the
-joined data and interactive chart; `aa_pareto.py` performs task-oriented selection.
+Recommend a Copilot model and reasoning effort for a **specific task type**. The skill maps the task to the most relevant Artificial Analysis quality benchmark, speed metric, and cost metric, then finds the three-axis Pareto frontier and role-oriented picks. `build_report.py` generates the joined data and interactive chart; `aa_pareto.py` performs task-oriented selection.
+
+## Pareto means three axes
+
+A candidate is Pareto-efficient when no other candidate is at least as good on **quality**, **speed**, and **cost**, and strictly better on at least one of them. A single frontier point is the clear choice because it dominates every measured alternative. Multiple frontier points represent real trade-offs rather than one universal winner.
+
+For consequential choices with multiple frontier points, ask the user whether quality, speed, or cost matters most for that role. If unattended automation needs a default, prefer speed over cost: the selector's quality-at-efficiency knee weights normalized speed twice as strongly as normalized cost. Do not hide the remaining frontier or describe the default knee as uniquely optimal. For this environment, use the GPT-5.6 family as a soft tie-breaker when candidates are close after accounting for role fit and production evidence; do not let the family preference override a material quality, elapsed-time, or cost disadvantage.
 
 ## When to use
 
@@ -18,12 +19,14 @@ joined data and interactive chart; `aa_pareto.py` performs task-oriented selecti
   parallel, mechanical step (e.g. map vs reduce; proposer vs batch rater).
 - Choosing models for routine coding, professional knowledge work, instruction following,
   terminal agents, office automation, factual research, or multimodal analysis.
-- Refreshing a hardcoded model table (e.g. the `tri-review` skill's heavy/light picks).
+- Refreshing a hardcoded model table such as the `tri-review` skill's normal, same-family alternate, and maximum-depth picks.
 - Answering "which model should I use for X", "what's faster but still good", or "fastest model
   above quality N".
 
 Do **not** use for: generic Copilot CLI usage, litellm call mechanics (structured output, tool
-calling — that's `litellm-copilot`), or non-model questions.
+calling — that's `litellm-copilot`), media/file-format questions, or other non-model questions.
+Incidental mention of a model name is not enough; the user must be choosing, comparing, or
+refreshing a model or reasoning-effort default.
 
 ## Data sources and prerequisites
 
@@ -36,8 +39,8 @@ calling — that's `litellm-copilot`), or non-model questions.
 - Endpoint: `https://artificialanalysis.ai/api/v2/data/llms/models` (returns `{ "data": [ ... ] }`).
 - Public RSC enrichment:
   - Intelligence Index page: proprietary AA benchmarks and task-level token/time/cost data.
-  - AA-Briefcase page: overall/rubric/analysis/presentation Elo plus native task duration,
-    turns, tool calls, and observed provider-list-price cost per task.
+  - AA-Briefcase page: overall/analysis/presentation Elo plus turn and tool-call telemetry for the
+    models preselected on its chart. AA no longer publishes Briefcase task durations or rubric Elo.
 
 ## Quick use
 
@@ -53,15 +56,19 @@ python aa_pareto.py --task knowledge-work
 python aa_pareto.py --task instruction-following
 python aa_pareto.py --task office-automation
 python aa_pareto.py --task factual-research
-python aa_pareto.py --metric briefcase-analysis --speed-metric briefcase-time
+python aa_pareto.py --metric briefcase-analysis --speed-metric briefcase-turns
 python aa_pareto.py --task knowledge-work --speed-metric briefcase-cost
-python aa_pareto.py --task professional-output --speed-metric task-cost
+python aa_pareto.py --metric intelligence --speed-metric task-time --cost-metric task-ai-credits
+python aa_pareto.py --task coding --speed-metric task-elapsed --speed-weight 1 --cost-weight 2
+python aa_pareto.py --task coding --speed-metric task-elapsed --strictly-better-than gpt-5.4-mini@low
+python aa_pareto.py --task professional-output --speed-metric gdpval-turns
 python aa_pareto.py --min-quality 1400 # optional absolute floor
-python aa_pareto.py --models "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna"
+python aa_pareto.py --models "gpt-6-astra,gpt-5.6-sol,gpt-5.6-luna"
 python aa_pareto.py --json             # machine-readable
 python aa_pareto.py --report-data C:\path\to\model_data.json
 python aa_pareto.py --all              # every AA model via the API
-python aa_pareto.py --tri-review       # per-family heavy/light candidates (refreshes tri-review's table)
+python aa_pareto.py --tri-review       # latency-budgeted normal/alternate/maximum tri-review picks
+python aa_pareto.py --tri-review --tri-review-budget 240
 python aa_pareto.py --refresh          # bypass report/cache and query the API
 ```
 
@@ -70,14 +77,14 @@ fallback is cached per user for **24h** because the free API tier allows only **
 All benchmark data is provided by **Artificial Analysis**; preserve the attribution in generated
 output.
 
-It prints, restricted to Copilot ids: candidates sorted by the task's quality metric, the
-**Pareto frontier**, and three role picks:
+It prints, restricted to Copilot ids: candidates sorted by the task's quality metric, the three-axis **Pareto frontier**, and four role picks:
 
 | Role | Rule | Typical result |
 |------|------|----------------|
 | **heavy reasoner** | maximum task-relevant quality | Task-dependent |
-| **quality-at-speed** | multiplicative Pareto knee | Task-dependent |
+| **quality-at-efficiency** | speed-priority quality × speed × cost knee | Task-dependent |
 | **fast / light** | fastest above the profile quality floor | Task-dependent |
+| **cost saver** | cheapest above the profile quality floor | Task-dependent |
 
 ## Task-to-benchmark selection
 
@@ -90,25 +97,25 @@ benchmarks remain useful for narrow capabilities and coverage gaps.
 > particular benchmark. The profile mapping, quality floors, Pareto-knee calculation, and final
 > model recommendation are our interpretation of AA's benchmark descriptions and data.
 
-| Task profile | Primary quality metric | Efficiency metric | Use for |
-|---|---|---|---|
-| `coding` | AA Coding Index | Output throughput | General implementation and code review |
-| `general-reasoning` | AA Intelligence Index | Intelligence Index task time | Broad synthesis without a narrower benchmark |
-| `terminal-agent` | Terminal-Bench v2.1 | Output throughput | Autonomous repository/tool work |
-| `knowledge-work` | AA-Briefcase overall Elo | Briefcase median task duration | Long professional projects and deliverables |
-| `professional-output` | GDPval-AA v2 | GDPval turns per task | Business writing and polished work products |
-| `instruction-following` | IFBench | Output throughput | Rating, extraction, cleanup, schema-constrained work |
-| `agentic-tools` | AA Agentic Index | Output throughput | Multi-tool planning and execution |
-| `office-automation` | Enterprise Ops Gym success | Native active-task duration | Email, files, calendars, CRM, and office workflows |
-| `factual-research` | AA-Omniscience | Output throughput | Research where hallucination avoidance matters |
-| `multimodal` | MMMU Pro | Output throughput | Image/document understanding |
+| Task profile | Primary quality metric | Speed metric | Cost metric | Use for |
+|---|---|---|---|---|
+| `coding` | AA Coding Index | Output throughput | Copilot AI credits | General implementation and code review |
+| `general-reasoning` | AA Intelligence Index | Intelligence Index task time | Estimated task AI credits | Broad synthesis without a narrower benchmark |
+| `terminal-agent` | Terminal-Bench v2.1 | Output throughput | Copilot AI credits | Autonomous repository/tool work |
+| `knowledge-work` | AA-Briefcase overall Elo | Briefcase turns per task | Estimated Briefcase AI credits | Long professional projects and deliverables |
+| `professional-output` | GDPval-AA v2 | GDPval turns per task | Copilot AI credits | Business writing and polished work products |
+| `instruction-following` | IFBench | Output throughput | Copilot AI credits | Rating, extraction, cleanup, schema-constrained work |
+| `agentic-tools` | AA Agentic Index | Output throughput | Copilot AI credits | Multi-tool planning and execution |
+| `office-automation` | Enterprise Ops Gym success | Output throughput | Copilot AI credits | Email, files, calendars, CRM, and office workflows |
+| `factual-research` | AA-Omniscience | Output throughput | Copilot AI credits | Research where hallucination avoidance matters |
+| `multimodal` | MMMU Pro | Output throughput | Copilot AI credits | Image/document understanding |
 
 Use `--metric` and `--speed-metric` only when the task profile is not precise enough. The CLI and
 web chart reject unrelated combinations:
 
-- Intelligence Index quality pairs only with Intelligence Index task time/cost.
-- AA-Briefcase quality pairs only with Briefcase task duration/cost.
-- Enterprise Ops quality pairs only with Enterprise Ops active-task duration.
+- Intelligence Index quality pairs only with Intelligence Index task time/cost (AA list prices or
+  `task-ai-credits`).
+- AA-Briefcase quality pairs only with Briefcase turns/run cost.
 - GDPval quality pairs only with GDPval turns per task.
 - Benchmarks without native task telemetry use generic serving throughput, TTFT, or token price.
 
@@ -122,19 +129,36 @@ web chart reject unrelated combinations:
   throughput. A fast model at high effort usually beats a slow model at low effort here.
 - **Latency-sensitive interactive** work: compare generic throughput and TTFT. Do not convert them
   into a synthetic fixed-token turn duration.
-- **Long agentic/professional work:** use benchmark-native duration (`briefcase-time` or
-  `enterprise-ops-time`) rather than token throughput. Native duration includes the model's
-  planning, turns, and tool-use behavior.
+- **Throughput is a decode *rate*, not time-to-answer.** A model that emits tokens fast can still
+  finish later, because a higher-quality answer costs it far more tokens. When the decision is
+  really about elapsed time, use `task-elapsed` (Intelligence Index decode time plus median TTFT); a
+  `throughput` frontier and a `task-time` frontier can rank the same family in opposite orders.
+- `task-elapsed` is a cross-benchmark latency proxy, not a task-specific duration measurement for Coding Index, Terminal-Bench, Agentic Index, or MMMU. Use it for sensitivity analysis, and validate important production changes on the actual workflow.
+- For subagent overrides, use `--strictly-better-than MODEL@EFFORT`. By default, require higher task quality, better speed, and lower AI-credit cost than Copilot's built-in default. If the user explicitly accepts an evidence-informed role override, a fixed-role agent such as `explore` or `task` may instead use balanced benchmark, elapsed-time, role-fit, and runtime-experiment evidence; state that strict all-axis dominance was not established. If neither strict measurements nor a user-approved exception exists, retain the built-in default.
+
+### Subagent defaults with incomplete benchmark coverage
+
+When a built-in default has aged out of complete AA coverage, do not reduce the decision to the remaining numeric axes. Use a conservative role-based review:
+
+1. Inspect the current built-in agent definition and any active model experiment in `github/copilot-agent-runtime`.
+2. Map the role to its closest task profile: `explore` → coding/search latency, `task` → terminal execution, `research` → factual research and knowledge work, review agents → coding quality.
+3. Compare every still-published baseline measurement, current Copilot AI-credit pricing, and runtime experiment outcomes. A candidate must beat the strongest available baseline evidence on quality and speed and the cheapest baseline cost; missing evidence is uncertainty, not a free win.
+4. Prefer the built-in default while an authoritative runtime experiment is still running. An explicit override is warranted only when the combined benchmark and product evidence supports strict improvement.
+
+Explicit, user-requested multi-model ensembles such as tri-review are diversity workflows rather than replacements for a built-in default, so evaluate them by coverage and adjudication quality instead of this single-model override gate.
 
 ## Pricing and cost interpretation
 
-- Copilot premium-request billing is not represented by AA provider pricing. On an unlimited plan,
-  model selection should normally optimize quality and elapsed time.
+- **Copilot `billing.tokenPrices` are already AI-credit prices per token batch.** Use them directly; do not divide them into a second internal-dollar representation. GitHub defines 1 AI credit as $0.01 USD.
+- **AA's per-task cost comes from the scraped public RSC data, not the models API.** The API supplies model rows and public provider token prices. Estimate task AI credits by recovering the AA task's input/output token quantities from its component costs and applying the corresponding Copilot AI-credit rates.
+- **Estimated task AI credits are counterfactual, not observed charges.** For Intelligence Index, scale input and output components separately. For Briefcase, AA exposes only total run cost, so use the Copilot/public blended-rate ratio. Cache use, reasoning-token treatment, and task-specific token mix can still differ. For completed calls, CAPI's `copilot_usage.total_nano_aiu / 1e9` is authoritative.
+- Use live `models.list` pricing first. For picker-only public models, refresh GitHub's official Copilot pricing table and use its current default-tier rates. If any eligible model still lacks Copilot AI-credit pricing, fall back to AA public cost for every candidate rather than mixing cost bases.
+- Copilot premium-request billing is represented by neither figure: it charges per *request* times
+  a model multiplier, not per token. On an unlimited plan, optimize quality and elapsed time.
 - Intelligence Index task cost applies only to the Intelligence Index profile.
-- AA-Briefcase cost per task is derived from the benchmark's observed total provider-list-price
-  cost divided by completed tasks. It is suitable for comparing resource efficiency, but **not**
-  for predicting a Copilot invoice.
-- Prefer native cost-per-task over token price when the selected benchmark provides it; agentic models can
+- AA-Briefcase run cost is the benchmark's observed total provider-list-price cost. It is suitable
+  for comparing resource efficiency, but **not** for predicting a Copilot invoice.
+- Prefer native task cost over token price when the selected benchmark provides it; agentic models can
   differ substantially in turns, tool calls, cache use, and reasoning tokens.
 
 ## Reasoning effort & context tier (don't forget these)
@@ -155,15 +179,10 @@ Caveats:
 
 ## Refresh the Copilot set
 
-Run `python build_report.py --discover-models` to refresh availability and exact effort mappings
-for IDs already in the reviewed public `MODEL_SPECS` allowlist. Discovery must never add an
-unrecognized ID to the script, JSON, or HTML automatically: verify that a new model is publicly
-available before adding it manually. The `COPILOT_MODELS` substring map in `aa_pareto.py` is only
-the direct-API fallback; apply the same public-only review before changing it.
+Run `python build_report.py --discover-models` to refresh availability and exact effort mappings for IDs already in the reviewed public `MODEL_SPECS` allowlist. Treat `models.list` as the normal availability authority. GPT-6 Astra appeared in `models.list` with `low` through `max` reasoning efforts on September 5, 2026. When a public model is exposed only by the interactive runtime, add it to `LIVE_PROBE_VERIFIED_MODEL_IDS` only after a fresh live inference probe succeeds, and remove it when a later probe fails. Gemini 3.5, 3.6, and 3.7 Flash were live-probed successfully on September 2, 2026; Gemini 3.8 Flash was live-probed successfully on September 4, 2026. Gemini 3.1 Pro Preview is not currently exposed and remains excluded. Discovery must never add an unrecognized ID automatically. The `COPILOT_MODELS` substring map in `aa_pareto.py` is only the direct-API fallback; apply the same public-only review before changing it.
 
 ## Related skills
 
 - **`litellm-copilot`** — how to *call* the chosen model (structured output, tool calling, the
   `github_copilot/<id>` provider). It defers model *selection* to this skill.
-- **`tri-review`** — its "refresh" step runs `aa_pareto.py --tri-review` to regenerate the
-  per-family heavy/light reviewer candidates (apply judgment for pro-vs-flash heavy tiers).
+- **`tri-review`** — its refresh step runs `aa_pareto.py --tri-review` to regenerate per-family normal, same-family alternate, and maximum-depth candidates. With four usable families, tri-review excludes the active family and uses the other three; the same-family alternate is retained only for degraded three-family operation.

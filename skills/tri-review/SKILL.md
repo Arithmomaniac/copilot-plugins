@@ -1,24 +1,25 @@
 ---
 name: tri-review
-description: Run an escalated, parallel three-model code review using Claude, GPT, and Gemini reviewers, then adjudicate consensus findings. Use when the user says "tri-review", "triple review", "three model review", "multi-model review", asks for a review with multiple models, or wants extra confidence on high-risk code changes.
+description: Run an escalated, parallel three-model code review using three families selected from Claude, GPT, Gemini, and Grok, then adjudicate consensus findings. Use only when the user explicitly asks for a tri-review, triple/three-model/multi-model review, or an already-invoked workflow explicitly requires tri-review. Do not infer it merely because a change appears risky, complex, or release-critical.
 ---
 
 # Tri-Review
 
 Run three parallel code-review subagents with different model families to get diverse perspectives on code changes, then adjudicate the findings into a concise consensus report.
 
-Tri-review is an **escalated code-review workflow**, not the default review path. Use it when model diversity and consensus are worth the extra latency: high-risk changes, release-critical changes, surprising regressions, security-sensitive edits, complex logic, or cases where a normal single-model review feels insufficient.
+Tri-review is an **escalated code-review workflow**, not the default review path. It requires explicit multi-model-review intent from the user or an explicit instruction from an already-active parent workflow such as `pr-shepherd`.
 
 ## When to use
 
 - User says "tri-review", "triple review", "three model review", "multi-model review"
 - User asks to review something with multiple models
 - User says "do a tri-review of this" or "run the triple review"
-- User wants extra confidence on important, risky, ambiguous, or release-critical code changes
+- An already-invoked workflow explicitly requires tri-review as one of its steps
 
 ## When not to use
 
 - For a normal fast code review, prefer the native `/review` workflow or a single `code-review` subagent.
+- Do not activate merely because a change appears important, risky, ambiguous, complex, security-sensitive, or release-critical.
 - For early plans, designs, proposals, partial work, or "what might go wrong?" critique, prefer `rubber-duck`.
 - For security-only review, prefer `/security-review` or the `security-review` agent.
 - For PR walkthroughs where the human reviewer drives comments and verdicts, prefer `pr-reviewer`.
@@ -36,42 +37,40 @@ Ask or infer from context:
 
 Respect explicit user scope. Otherwise follow the same scope order as the native code-review agent: staged changes first, then unstaged changes, then branch diff when the working tree is clean. Do not broaden the review into general repository health unless the user explicitly asks.
 
-### 2. Select model families
+### 2. Reuse an existing reviewer cohort when possible
 
-Use one reviewer from each major family for diversity: Anthropic Claude, OpenAI GPT, and Google Gemini. Prefer the hardcoded model choices below; they are selected from Artificial Analysis coding/intelligence/speed data and Copilot CLI model availability.
+Within the same root session, treat repeated tri-review requests about the same branch, PR, or evolving change set as follow-up rounds.
 
-AA-backed hardcodings, queried 2026-07-02 (via the `aa-pareto` skill; run `aa_pareto.py --tri-review` to re-refresh):
+- If the prior three reviewers are still available as running or idle agents, reuse their recorded `agent_id` values with `write_agent`.
+- Send each reviewer the new objective, the exact change since its previous review, the current diff scope, and any findings it should verify. Do not resend the entire development history.
+- Keep the original reviewer roster for that review lineage even if the root model changes.
+- Reuse reviewers when the user says "tri-review again", asks the same reviewers to inspect fixes, requests reconsideration, or continues reviewing the same PR.
+- Launch fresh reviewers when there is no prior cohort in the current session, the scope is unrelated, a prior agent is unavailable, the user asks for a fresh/blind/independent review, or independence is more important than continuity.
+- Do not use `list_agents` merely to rediscover known reviewer IDs. Use the IDs retained in the conversation. If a `write_agent` call fails because an agent is unavailable, launch only the missing replacement and give it sufficient standalone context.
 
-| Family | Heavy/default reviewer | Why this heavy model | Light same-family reviewer | Why this light model |
-|---|---|---|---|---|
-| Claude / Anthropic | `claude-opus-4.8` | Highest Claude AA scores: coding 76.5, intelligence 59.9 (69 tok/s) | `claude-haiku-4.5` | Light Claude speed pick: coding 43.9 at 152 tok/s; same-family diversity/latency, not maximum depth |
-| GPT / OpenAI | `gpt-5.5` | Highest GPT AA scores: coding 74.9, intelligence 54.8; strong latency (~22s TTFT) at 82 tok/s | `gpt-5.4-mini` | Best GPT light quality-speed tradeoff: coding 56.1, intelligence 40.0 at 178 tok/s |
-| Gemini / Google | `gemini-3.5-flash` | Now the top Gemini on AA coding (70.1) **and** the fastest (219 tok/s) — overtook 3.1 Pro (68.8) this refresh | `gemini-3.1-pro-preview` | Distinct same-family reviewer for echo-reduction (coding 68.8, intelligence 46.5, 140 tok/s); a *diversity* pick, since Flash now leads it on both coding and speed |
+Reviewer continuity is session-scoped. Do not claim that reviewer memory survives a new root session.
 
-Rules:
-- Keep three distinct families whenever possible.
-- For normal tri-review, use the heavy/default reviewer for families that did **not** produce the work.
-- If the current/root agent is from one of the families above, use that family's **light same-family reviewer** instead of its default reviewer. This keeps the same-family perspective while reducing echo-chamber risk and latency.
-- If the user explicitly asks for a maximum-depth or heavy tri-review, use the heavy/default reviewer for all three families even when one family produced the work.
-- If a listed model is unavailable, choose the best available model in the same family using the same AA criteria: heavy/default reviewer = highest coding score, breaking ties with intelligence and latency; light reviewer = best coding-weighted quality-per-second among small/fast models available in Copilot.
-- During a refresh, run the `aa-pareto` skill's script from this skill's directory: `python ../aa-pareto/aa_pareto.py --tri-review` (it queries the AA API with `AA_API_KEY`, restricts to Copilot ids, and emits per-family heavy = max-coding and light = fastest-with-floor candidates from `artificial_analysis_coding_index`, `artificial_analysis_intelligence_index`, `median_output_tokens_per_second`, and `median_time_to_first_token_seconds`). Apply judgment for "pro vs flash" heavy tiers — a fast model can out-score the pro model on coding yet you may still want the pro tier as the heavy reviewer — then update the table below and the "queried" date.
+### 3. Select model families
 
-### 3. Launch three parallel code-review subagents
+Read [model-selection.md](model-selection.md) before creating a new reviewer cohort or replacing an unavailable reviewer. It contains the dated model table, active-family exclusion rules, maximum-depth policy, and refresh procedure. Do not load it for follow-up rounds that reuse an existing cohort.
 
-Use the `task` tool with `agent_type: "code-review"` and three different models, all launched in **parallel** (all three calls in a single response):
+### 4. Launch or resume three parallel code-review subagents
 
-```
-Model 1: selected Claude reviewer
-Model 2: selected GPT reviewer
-Model 3: selected Gemini reviewer
-```
+For a new cohort, use the `task` tool with `agent_type: "code-review"` and the three selected family models, all launched in **parallel** in one response. Use `mode: "background"` so the reviewers remain available for later rounds in the same root session. Record each reviewer's family, model, name, and returned `agent_id` in the conversation context.
 
 Each subagent gets the same prompt describing what to review. Include sufficient context: diff scope, base branch, changed file paths, user instructions, and any important task context already known.
+Pass the effort listed in the applicable table column as the task's `reasoning_effort`.
 
 **Example prompt for each subagent:**
 > Review the specified code changes for bugs, security issues, logic errors, regressions, broken assumptions, race conditions, resource leaks, missing error handling that can crash, public API breaks, and measurable performance problems. Only flag genuine, high-confidence issues. Do not comment on style, formatting, naming, documentation, minor refactors, or best-practice preferences unless they prevent an actual bug. If unsure, do not mention it. Verify concerns by reading surrounding code and, when practical, running focused checks. For each issue, provide file/line, severity (`Critical`, `High`, or `Medium`), problem, evidence, and suggested fix. Do not edit files.
 
-### 4. Consolidate results
+For a follow-up round, send the same follow-up prompt to all available cohort members in one `write_agent` call:
+
+> Continue your previous review of this change set. Since your last review, [describe the exact edits or new question]. Review the current [diff scope], verify whether your earlier findings were resolved or invalidated, and inspect the changed paths for new regressions. Reuse your prior understanding instead of restarting repository discovery, but verify all claims against the current files. Return only new or still-actionable findings, or `CLEAR`. Do not edit files.
+
+Wait for completion notifications, then read each reviewer once with `read_agent`. Do not poll.
+
+### 5. Consolidate results
 
 After all three complete, adjudicate before reporting:
 
@@ -85,9 +84,11 @@ Then present a consolidated report:
 
 #### Consensus findings (2+ reviewers agree)
 
-| # | Issue | Severity | Evidence | Claude | GPT | Gemini |
+| # | Issue | Severity | Evidence | Reviewer A | Reviewer B | Reviewer C |
 |---|-------|----------|----------|:---:|:---:|:---:|
 | 1 | Description with file/line | Critical/High/Medium | Why this is a real issue | ✓ | ✓ | |
+
+Replace the reviewer headings with the three selected family names.
 
 #### Notable single-reviewer findings
 
@@ -95,7 +96,7 @@ Then present a consolidated report:
 |---|-------|----------|----------|----------|
 | 1 | Description with file/line | Critical/High/Medium | Why this is worth investigating | Which model |
 
-### 5. Summary
+### 6. Summary
 
 End with a brief assessment:
 - How clean the changes are overall
@@ -111,11 +112,13 @@ If a model fails or times out:
 - Adjust the consensus table: 2-of-2 agreement is equivalent to 2-of-3
 - Do not retry automatically unless the user asks
 - Do not block the review waiting for an unavailable model
+- On a later follow-up round, replace only a reviewer that is no longer available; reuse the remaining cohort.
 
 ## Notes
 
-- The three models are chosen for diversity: Claude (Anthropic), GPT (OpenAI), Gemini (Google)
-- Model names should be refreshed periodically from Copilot availability plus Artificial Analysis quality/speed data
+- The three models are chosen from four live families so the family that produced the work can be excluded
+- Reusing the cohort preserves reviewer understanding and avoids repeating repository discovery; fresh reviewers remain available when independence is the goal
+- Model names should be refreshed periodically from Copilot availability plus Artificial Analysis quality/latency data
 - Consensus findings (2+ models flag the same issue) have higher signal than single-reviewer findings
 - The consolidator owns judgment: do not forward every reviewer comment mechanically
 - This pattern is optimized for post-change code defect review. Use `rubber-duck` for broader design/proposal critique.

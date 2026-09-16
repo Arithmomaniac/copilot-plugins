@@ -2,7 +2,7 @@
 """Pareto search over Artificial Analysis model benchmarks, restricted to Copilot CLI models.
 
 Prefers the generated Copilot model × reasoning-effort report, with the Artificial Analysis API
-as a fallback, and reports the Pareto-optimal frontier plus role-based recommendations.
+as a fallback, and reports the quality × speed × cost Pareto frontier plus role recommendations.
 
 Auth: set env AA_API_KEY (or ARTIFICIAL_ANALYSIS_API_KEY). Sent as the `x-api-key` header.
 Endpoint: https://artificialanalysis.ai/api/v2/data/llms/models
@@ -16,7 +16,7 @@ Usage:
     python aa_pareto.py --min-quality 55         # absolute floor for the "fast/light" pick
     python aa_pareto.py --all                    # do not restrict to Copilot CLI ids
     python aa_pareto.py --json                    # machine-readable output
-    python aa_pareto.py --models "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna"  # custom id set
+    python aa_pareto.py --models "gpt-6-astra,gpt-5.6-sol,gpt-5.6-luna"  # custom id set
     python aa_pareto.py --refresh                 # bypass the 24h cache and re-query the API
 
 Results are cached for 24h (the free tier allows only 100 requests/day). All data is provided by
@@ -38,12 +38,18 @@ CACHE_TTL_SECONDS = 24 * 60 * 60  # AA data refreshes ~daily and the free tier i
 ATTRIBUTION = ("Data by Artificial Analysis (https://artificialanalysis.ai) — "
                "attribution required per their API terms.")
 DEFAULT_REPORT_DATA = Path(__file__).with_name("model_data.json")
+DEFAULT_TRI_REVIEW_BUDGET_SECONDS = 300.0
+TRI_REVIEW_FAMILIES = (
+    ("Claude / Anthropic", "claude"),
+    ("GPT / OpenAI", "gpt"),
+    ("Gemini / Google", "gemini"),
+    ("Grok / xAI", "grok"),
+)
 
 QUALITY_METRICS = {
     "coding": ("coding", "coding index"),
     "intelligence": ("intelligence", "intelligence index"),
     "briefcase": ("briefcase", "AA-Briefcase Elo"),
-    "briefcase-rubric": ("briefcase_rubric", "AA-Briefcase rubric Elo"),
     "briefcase-analysis": ("briefcase_analysis", "AA-Briefcase analytical quality Elo"),
     "briefcase-presentation": (
         "briefcase_presentation",
@@ -61,48 +67,119 @@ QUALITY_METRICS = {
 SPEED_METRICS = {
     "throughput": ("tok_s", True, "output tok/s"),
     "ttft": ("ttft", False, "TTFT"),
-    "token-price": ("token_price", False, "blended token price"),
     "task-time": ("task_time", False, "AA task decode time"),
-    "task-cost": ("task_cost", False, "AA cost per task"),
-    "briefcase-time": ("briefcase_time", False, "AA-Briefcase median task time"),
-    "briefcase-cost": ("briefcase_cost", False, "AA-Briefcase cost per task"),
+    "task-elapsed": ("task_elapsed", False, "AA task elapsed proxy"),
+    "briefcase-turns": ("briefcase_turns", False, "AA-Briefcase turns per task"),
     "gdpval-turns": ("gdpval_turns", False, "GDPval-AA turns per task"),
-    "enterprise-ops-time": (
-        "enterprise_ops_time",
-        False,
-        "Enterprise Ops median active task time",
+}
+
+COST_METRICS = {
+    "token-price": ("token_price", "AA blended token price"),
+    "ai-credits": (
+        "copilot_ai_credits",
+        "Copilot blended AI credits per 1M tokens",
+    ),
+    "task-cost": ("task_cost", "AA cost per task"),
+    "task-ai-credits": (
+        "copilot_task_ai_credits",
+        "Estimated Copilot AI credits per AA task",
+    ),
+    "briefcase-cost": ("briefcase_cost", "AA-Briefcase total run cost"),
+    "briefcase-ai-credits": (
+        "copilot_briefcase_ai_credits",
+        "Estimated Copilot AI credits per AA-Briefcase run",
     ),
 }
+
+COST_FALLBACKS = {
+    "ai-credits": "token-price",
+    "task-ai-credits": "task-cost",
+    "briefcase-ai-credits": "briefcase-cost",
+}
+
+DEFAULT_SPEED_WEIGHT = 2.0
+DEFAULT_COST_WEIGHT = 1.0
 
 # Maintained recommendation policy based on AA benchmark definitions. Artificial
 # Analysis supplies the measurements but does not prescribe these application mappings.
 TASK_PROFILES = {
-    "coding": ("coding", "throughput", 0.70),
-    "general-reasoning": ("intelligence", "task-time", 0.70),
-    "terminal-agent": ("terminal", "throughput", 0.65),
-    "knowledge-work": ("briefcase", "briefcase-time", 0.80),
-    "professional-output": ("knowledge-work", "gdpval-turns", 0.80),
-    "instruction-following": ("ifbench", "throughput", 0.85),
-    "agentic-tools": ("agentic", "throughput", 0.65),
-    "office-automation": ("enterprise-ops", "enterprise-ops-time", 0.65),
-    "factual-research": ("factuality", "throughput", 0.70),
-    "multimodal": ("multimodal", "throughput", 0.70),
+    "coding": ("coding", "throughput", "ai-credits", 0.70),
+    "general-reasoning": ("intelligence", "task-time", "task-ai-credits", 0.70),
+    "terminal-agent": ("terminal", "throughput", "ai-credits", 0.65),
+    "knowledge-work": (
+        "briefcase",
+        "briefcase-turns",
+        "briefcase-ai-credits",
+        0.80,
+    ),
+    "professional-output": (
+        "knowledge-work",
+        "gdpval-turns",
+        "ai-credits",
+        0.80,
+    ),
+    "instruction-following": (
+        "ifbench",
+        "throughput",
+        "ai-credits",
+        0.85,
+    ),
+    "agentic-tools": ("agentic", "throughput", "ai-credits", 0.65),
+    "office-automation": (
+        "enterprise-ops",
+        "throughput",
+        "ai-credits",
+        0.65,
+    ),
+    "factual-research": (
+        "factuality",
+        "throughput",
+        "ai-credits",
+        0.70,
+    ),
+    "multimodal": ("multimodal", "throughput", "ai-credits", 0.70),
 }
 
-QUALITY_SPEED_COMPATIBILITY = {
-    "coding": {"throughput", "ttft", "token-price"},
-    "intelligence": {"task-time", "task-cost"},
-    "briefcase": {"briefcase-time", "briefcase-cost"},
-    "briefcase-rubric": {"briefcase-time", "briefcase-cost"},
-    "briefcase-analysis": {"briefcase-time", "briefcase-cost"},
-    "briefcase-presentation": {"briefcase-time", "briefcase-cost"},
-    "ifbench": {"throughput", "ttft", "token-price"},
-    "agentic": {"throughput", "ttft", "token-price"},
-    "terminal": {"throughput", "ttft", "token-price"},
-    "knowledge-work": {"gdpval-turns"},
-    "factuality": {"throughput", "ttft", "token-price"},
-    "multimodal": {"throughput", "ttft", "token-price"},
-    "enterprise-ops": {"enterprise-ops-time"},
+QUALITY_COMPATIBILITY = {
+    "coding": (
+        {"throughput", "ttft", "task-elapsed"},
+        {"token-price", "ai-credits"},
+    ),
+    "intelligence": ({"task-time"}, {"task-cost", "task-ai-credits"}),
+    "briefcase": (
+        {"briefcase-turns"},
+        {"briefcase-cost", "briefcase-ai-credits"},
+    ),
+    "briefcase-analysis": (
+        {"briefcase-turns"},
+        {"briefcase-cost", "briefcase-ai-credits"},
+    ),
+    "briefcase-presentation": (
+        {"briefcase-turns"},
+        {"briefcase-cost", "briefcase-ai-credits"},
+    ),
+    "ifbench": ({"throughput", "ttft"}, {"token-price", "ai-credits"}),
+    "agentic": (
+        {"throughput", "ttft", "task-elapsed"},
+        {"token-price", "ai-credits"},
+    ),
+    "terminal": (
+        {"throughput", "ttft", "task-elapsed"},
+        {"token-price", "ai-credits"},
+    ),
+    "knowledge-work": (
+        {"gdpval-turns"},
+        {"token-price", "ai-credits"},
+    ),
+    "factuality": ({"throughput", "ttft"}, {"token-price", "ai-credits"}),
+    "multimodal": (
+        {"throughput", "ttft", "task-elapsed"},
+        {"token-price", "ai-credits"},
+    ),
+    "enterprise-ops": (
+        {"throughput", "ttft"},
+        {"token-price", "ai-credits"},
+    ),
 }
 
 # Copilot-CLI-available model ids → substrings that match their Artificial Analysis `name`.
@@ -117,16 +194,22 @@ COPILOT_MODELS: dict[str, list[str]] = {
     "claude-sonnet-4.6": ["sonnet 4.6"],
     "claude-haiku-4.5": ["4.5 haiku", "haiku 4.5"],
     "gpt-5.6-sol": ["gpt-5.6 sol"],
+    "gpt-5.6-sol-fast": ["gpt-5.6 sol"],
     "gpt-5.6-terra": ["gpt-5.6 terra"],
     "gpt-5.6-luna": ["gpt-5.6 luna"],
+    "gpt-6-astra": ["gpt-6 astra"],
     "gpt-5.5": ["gpt-5.5"],
     "gpt-5.4": ["gpt-5.4 (", "gpt-5.4 x", "gpt-5.4 h", "gpt-5.4 m"],
     "gpt-5.4-mini": ["gpt-5.4 mini"],
     "gpt-5.3-codex": ["gpt-5.3", "5.3-codex", "gpt-5.3 codex"],
     "gpt-5-mini": ["gpt-5 mini", "gpt-5-mini"],
-    "gemini-3.1-pro-preview": ["gemini 3.1 pro"],
+    "gemini-3.8-flash": ["gemini 3.8 flash"],
+    "gemini-3.7-flash": ["gemini 3.7 flash"],
     "gemini-3.6-flash": ["gemini 3.6 flash"],
     "gemini-3.5-flash": ["gemini 3.5 flash"],
+    "grok-4.6": ["grok 4.6"],
+    "grok-4.5": ["grok 4.5"],
+    "mai-code-1.1-flash": ["mai-code-1.1-flash", "mai code 1.1 flash"],
     "mai-code-1-flash-picker": ["mai-code-1-flash", "mai code 1 flash"],
 }
 
@@ -251,15 +334,27 @@ def load_report_rows(path: Path) -> tuple[list[dict], str | None]:
             "tok_s": report_row.get("tok_s") or 0.0,
             "ttft": report_row.get("ttft") or 0.0,
             "token_price": metrics.get("price.price_1m_blended_3_to_1") or 0.0,
+            "copilot_ai_credits": (
+                metrics.get("price.copilot_ai_credits_blended_3_to_1") or 0.0
+            ),
             "task_time": metrics.get("task.decode_time_seconds") or 0.0,
+            "task_elapsed": (
+                metrics.get("task.elapsed_proxy_seconds")
+                or (
+                    (metrics.get("task.decode_time_seconds") or 0.0)
+                    + (report_row.get("ttft") or 0.0)
+                )
+            ),
             "task_cost": metrics.get("task.cost_total") or 0.0,
-            "briefcase_time": metrics.get("briefcase.task_time_p50_seconds") or 0.0,
-            "briefcase_cost": metrics.get("briefcase.cost_per_task_total") or 0.0,
-            "enterprise_ops_time": (
-                metrics.get("rich.enterprise_ops_task_time_p50_seconds") or 0.0
+            "copilot_task_ai_credits": (
+                metrics.get("copilot.ai_credits_per_task") or 0.0
+            ),
+            "briefcase_turns": metrics.get("briefcase.turns_per_task") or 0.0,
+            "briefcase_cost": metrics.get("briefcase.cost_total") or 0.0,
+            "copilot_briefcase_ai_credits": (
+                metrics.get("copilot.briefcase_ai_credits_total") or 0.0
             ),
             "briefcase": metrics.get("briefcase.elo") or 0.0,
-            "briefcase_rubric": metrics.get("briefcase.rubric_elo") or 0.0,
             "briefcase_analysis": (
                 metrics.get("briefcase.analytical_quality_elo") or 0.0
             ),
@@ -315,8 +410,14 @@ def restrict_to_copilot(models: list[dict], id_map: dict[str, list[str]], metric
     return out
 
 
-def pareto_front(rows: list[dict], metric: str, speed_key: str, higher_is_faster: bool) -> list[dict]:
-    """Maximize quality and performance, accounting for metrics where lower is faster."""
+def pareto_front(
+    rows: list[dict],
+    metric: str,
+    speed_key: str,
+    higher_is_faster: bool,
+    cost_key: str,
+) -> list[dict]:
+    """Return rows not dominated on quality, speed, and cost."""
     def at_least_as_fast(a: dict, b: dict) -> bool:
         return a[speed_key] >= b[speed_key] if higher_is_faster else a[speed_key] <= b[speed_key]
 
@@ -326,18 +427,74 @@ def pareto_front(rows: list[dict], metric: str, speed_key: str, higher_is_faster
     candidates = [
         r
         for r in rows
-        if (r.get(metric) or 0) > 0 and (r.get(speed_key) or 0) > 0
+        if (
+            (r.get(metric) or 0) > 0
+            and (r.get(speed_key) or 0) > 0
+            and (r.get(cost_key) or 0) > 0
+        )
     ]
     front = []
     for a in candidates:
         dominated = any(
-            b is not a and b[metric] >= a[metric] and at_least_as_fast(b, a)
-            and (b[metric] > a[metric] or strictly_faster(b, a))
+            b is not a
+            and b[metric] >= a[metric]
+            and at_least_as_fast(b, a)
+            and b[cost_key] <= a[cost_key]
+            and (
+                b[metric] > a[metric]
+                or strictly_faster(b, a)
+                or b[cost_key] < a[cost_key]
+            )
             for b in candidates
         )
         if not dominated:
             front.append(a)
     return sorted(front, key=lambda r: -r[metric])
+
+
+def strictly_dominates(
+    candidate: dict,
+    baseline: dict,
+    metric: str,
+    speed_key: str,
+    higher_is_faster: bool,
+    cost_key: str,
+) -> bool:
+    """Return whether candidate is strictly better on all three axes."""
+    faster = (
+        candidate[speed_key] > baseline[speed_key]
+        if higher_is_faster
+        else candidate[speed_key] < baseline[speed_key]
+    )
+    return (
+        candidate[metric] > baseline[metric]
+        and faster
+        and candidate[cost_key] < baseline[cost_key]
+    )
+
+
+def parse_model_effort(value: str) -> tuple[str, str | None]:
+    model, separator, effort = value.partition("@")
+    return model.strip(), effort.strip() if separator and effort.strip() else None
+
+
+def resolve_baseline(rows: list[dict], value: str) -> dict:
+    model, effort = parse_model_effort(value)
+    matches = [
+        row
+        for row in rows
+        if row.get("copilot_id") == model
+        and (effort is None or row.get("effort") == effort)
+    ]
+    if not matches:
+        raise ValueError(f"baseline {value!r} was not found in the measured rows")
+    if len(matches) > 1:
+        efforts = ", ".join(str(row.get("effort")) for row in matches)
+        raise ValueError(
+            f"baseline {model!r} has multiple measured efforts ({efforts}); "
+            "specify MODEL@EFFORT"
+        )
+    return matches[0]
 
 
 def label(r: dict) -> str:
@@ -346,20 +503,72 @@ def label(r: dict) -> str:
     return f"{model} ({effort})" if effort else model
 
 
-def tri_review_rows(rows: list[dict]) -> list[tuple]:
-    """Per family (Claude/GPT/Gemini): heavy = max coding; light = fastest with a quality floor.
-    Refresh material for the tri-review skill's hardcoded table (apply judgment for pro-vs-flash tiers)."""
-    fams = [("Claude / Anthropic", "claude"), ("GPT / OpenAI", "gpt"), ("Gemini / Google", "gemini")]
+def tri_review_elapsed(row: dict) -> float:
+    """Return the AA elapsed-time proxy used for parallel review calibration."""
+    ttft = row.get("ttft") or 0.0
+    decode_time = row.get("task_time") or 0.0
+    return ttft + decode_time if ttft > 0 and decode_time > 0 else 0.0
+
+
+def tri_review_rows(
+    rows: list[dict],
+    budget_seconds: float,
+) -> list[tuple[str, dict, dict, dict]]:
+    """Select normal, same-family alternate, and maximum-depth reviewers per family.
+
+    Normal review maximizes coding quality within a wall-clock budget because three reviewers run
+    in parallel and the slowest reviewer determines completion time. The alternate prefers a
+    different model ID within the same budget; when none exists, it uses another effort of the
+    normal model. Maximum depth remains the family's maximum coding score.
+    """
     out = []
-    for fam_label, key in fams:
-        members = [r for r in rows if key in (r.get("copilot_id") or "").lower()]
+    for fam_label, key in TRI_REVIEW_FAMILIES:
+        members = [
+            r
+            for r in rows
+            if key in (r.get("copilot_id") or "").lower()
+            and (r.get("coding") or 0) > 0
+            and tri_review_elapsed(r) > 0
+        ]
         if not members:
             continue
-        heavy = max(members, key=lambda r: (r["coding"], r["intelligence"]))
-        pool = [r for r in members if r["coding"] >= 20.0 and r is not heavy] \
-            or [r for r in members if r is not heavy] or members
-        light = max(pool, key=lambda r: r["tok_s"])
-        out.append((fam_label, heavy, light))
+        maximum = max(
+            members,
+            key=lambda r: (
+                r["coding"],
+                r["intelligence"],
+                -tri_review_elapsed(r),
+            ),
+        )
+        within_budget = [
+            r for r in members if tri_review_elapsed(r) <= budget_seconds
+        ]
+        normal_pool = within_budget or members
+        normal = max(
+            normal_pool,
+            key=lambda r: (
+                r["coding"],
+                r["intelligence"],
+                -tri_review_elapsed(r),
+            ),
+        )
+        distinct_model = [
+            r
+            for r in within_budget
+            if r.get("copilot_id") != normal.get("copilot_id")
+        ]
+        alternate_pool = distinct_model or [
+            r for r in within_budget if r is not normal
+        ] or [r for r in members if r is not normal] or [normal]
+        alternate = max(
+            alternate_pool,
+            key=lambda r: (
+                r["coding"],
+                r["intelligence"],
+                -tri_review_elapsed(r),
+            ),
+        )
+        out.append((fam_label, normal, alternate, maximum))
     return out
 
 
@@ -370,13 +579,20 @@ def picks(
     min_quality: float,
     speed_key: str,
     higher_is_faster: bool,
+    cost_key: str,
+    speed_weight: float = DEFAULT_SPEED_WEIGHT,
+    cost_weight: float = DEFAULT_COST_WEIGHT,
 ) -> dict:
     if not rows:
         return {}
     candidates = [
         r
         for r in rows
-        if (r.get(metric) or 0) > 0 and (r.get(speed_key) or 0) > 0
+        if (
+            (r.get(metric) or 0) > 0
+            and (r.get(speed_key) or 0) > 0
+            and (r.get(cost_key) or 0) > 0
+        )
     ]
     if not candidates:
         return {}
@@ -396,14 +612,39 @@ def picks(
 
     eligible = [r for r in candidates if r[metric] >= min_quality] or candidates
     eligible_front = [r for r in front if r in eligible]
-    knee = max(eligible_front or eligible, key=lambda r: (r[metric] / qmax) * speed_score(r))
-    heavy = max(candidates, key=lambda r: (r[metric], r.get("intelligence") or 0))
+    cmin = min(r[cost_key] for r in candidates)
+
+    def cost_score(r: dict) -> float:
+        return cmin / r[cost_key]
+
+    knee = max(
+        eligible_front or eligible,
+        key=lambda r: (
+            (r[metric] / qmax)
+            * speed_score(r) ** speed_weight
+            * cost_score(r) ** cost_weight
+        ),
+    )
+    heavy = max(
+        candidates,
+        key=lambda r: (
+            r[metric],
+            speed_score(r),
+            -r[cost_key],
+        ),
+    )
     fast = (
         max(eligible, key=lambda r: r[speed_key])
         if higher_is_faster
         else min(eligible, key=lambda r: r[speed_key])
     )
-    return {"heavy_reasoner": heavy, "quality_at_speed": knee, "fast_light": fast}
+    economical = min(eligible, key=lambda r: (r[cost_key], -speed_score(r)))
+    return {
+        "heavy_reasoner": heavy,
+        "quality_at_efficiency": knee,
+        "fast_light": fast,
+        "cost_saver": economical,
+    }
 
 
 def fmt(
@@ -412,19 +653,25 @@ def fmt(
     quality_label: str,
     speed_key: str,
     speed_label: str,
+    cost_key: str,
+    cost_label: str,
 ) -> str:
     price = ""
-    if (r.get("briefcase_cost") or 0) > 0:
-        price = f"  ${r['briefcase_cost']:.2f}/Briefcase task"
+    if (r.get("copilot_task_ai_credits") or 0) > 0:
+        price = f"  {r['copilot_task_ai_credits']:.2f} AI credits/AA task"
     elif (r.get("task_cost") or 0) > 0:
         price = f"  ${r['task_cost']:.2f}/AA task"
+    elif (r.get("briefcase_cost") or 0) > 0:
+        price = f"  ${r['briefcase_cost']:.2f}/Briefcase run"
     elif r["in_price"] is not None:
         price = f"  ${r['in_price']}/{r['out_price']}"
     quality = r.get(metric) or 0.0
     speed = r.get(speed_key) or 0.0
+    cost = r.get(cost_key) or 0.0
     return (
         f"{label(r):<32}{quality:8.2f} {quality_label:<30}"
-        f"{speed:9.2f} {speed_label:<28}{price}   [{r['name']}]"
+        f"{speed:9.2f} {speed_label:<28}"
+        f"{cost:9.2f} {cost_label:<35}{price}   [{r['name']}]"
     )
 
 
@@ -447,6 +694,11 @@ def main() -> None:
         help="advanced override for the task profile's efficiency metric",
     )
     ap.add_argument(
+        "--cost-metric",
+        choices=COST_METRICS,
+        help="advanced override for the task profile's cost metric",
+    )
+    ap.add_argument(
         "--list-tasks",
         action="store_true",
         help="list task profiles and their metric axes",
@@ -456,9 +708,42 @@ def main() -> None:
         type=float,
         help="absolute quality floor for the fast/light pick (default: profile ratio of max)",
     )
+    ap.add_argument(
+        "--speed-weight",
+        type=float,
+        default=DEFAULT_SPEED_WEIGHT,
+        help=f"normalized speed exponent for the efficiency knee (default: {DEFAULT_SPEED_WEIGHT:g})",
+    )
+    ap.add_argument(
+        "--cost-weight",
+        type=float,
+        default=DEFAULT_COST_WEIGHT,
+        help=f"normalized cost exponent for the efficiency knee (default: {DEFAULT_COST_WEIGHT:g})",
+    )
+    ap.add_argument(
+        "--strictly-better-than",
+        metavar="MODEL@EFFORT",
+        help=(
+            "keep only candidates with higher quality, better speed, and lower cost "
+            "than the specified baseline"
+        ),
+    )
     ap.add_argument("--all", action="store_true", help="do not restrict to Copilot CLI ids")
     ap.add_argument("--models", help="comma-separated Copilot ids to restrict to (subset of the map)")
-    ap.add_argument("--tri-review", action="store_true", help="emit per-family heavy/light refresh candidates")
+    ap.add_argument(
+        "--tri-review",
+        action="store_true",
+        help="emit latency-budgeted per-family tri-review candidates",
+    )
+    ap.add_argument(
+        "--tri-review-budget",
+        type=float,
+        default=DEFAULT_TRI_REVIEW_BUDGET_SECONDS,
+        help=(
+            "AA elapsed-time budget in seconds for normal parallel reviewers "
+            f"(default: {DEFAULT_TRI_REVIEW_BUDGET_SECONDS:g})"
+        ),
+    )
     ap.add_argument("--refresh", action="store_true", help="bypass the 24h cache and re-query the API")
     ap.add_argument(
         "--report-data",
@@ -467,27 +752,40 @@ def main() -> None:
     )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+    if args.speed_weight < 0:
+        ap.error("--speed-weight must be nonnegative")
+    if args.cost_weight < 0:
+        ap.error("--cost-weight must be nonnegative")
 
     if args.list_tasks:
         print(
             "Task profiles are this skill's recommendation policy; "
             "Artificial Analysis supplies benchmark definitions and measurements.\n"
         )
-        for task, (quality, speed, ratio) in TASK_PROFILES.items():
+        for task, (quality, speed, cost, ratio) in TASK_PROFILES.items():
             print(
                 f"{task:<22} quality={QUALITY_METRICS[quality][1]:<40} "
-                f"efficiency={SPEED_METRICS[speed][2]:<40} floor={ratio:.0%}"
+                f"speed={SPEED_METRICS[speed][2]:<35} "
+                f"cost={COST_METRICS[cost][1]:<45} floor={ratio:.0%}"
             )
         return
 
-    profile_metric, profile_speed, quality_floor_ratio = TASK_PROFILES[args.task]
+    profile_metric, profile_speed, profile_cost, quality_floor_ratio = TASK_PROFILES[
+        args.task
+    ]
     metric_name = args.metric or profile_metric
     speed_name = args.speed_metric or profile_speed
-    if speed_name not in QUALITY_SPEED_COMPATIBILITY[metric_name]:
-        allowed = ", ".join(sorted(QUALITY_SPEED_COMPATIBILITY[metric_name]))
+    cost_name = args.cost_metric or profile_cost
+    allowed_speed, allowed_cost = QUALITY_COMPATIBILITY[metric_name]
+    if speed_name not in allowed_speed:
         ap.error(
             f"{speed_name} is not relevant to {metric_name}; "
-            f"choose one of: {allowed}"
+            f"choose one of: {', '.join(sorted(allowed_speed))}"
+        )
+    if cost_name not in allowed_cost:
+        ap.error(
+            f"{cost_name} is not relevant to {metric_name}; "
+            f"choose one of: {', '.join(sorted(allowed_cost))}"
         )
     metric, quality_label = QUALITY_METRICS[metric_name]
     speed_key, higher_is_faster, speed_label = SPEED_METRICS[speed_name]
@@ -517,43 +815,142 @@ def main() -> None:
         wanted = {m.strip() for m in args.models.split(",") if m.strip()}
         rows = [r for r in rows if r.get("copilot_id") in wanted]
 
+    requested_cost_name = cost_name
+    cost_key, cost_label = COST_METRICS[cost_name]
+    cost_fallback_reason = None
+    quality_speed_rows = [
+        r
+        for r in rows
+        if (r.get(metric) or 0) > 0 and (r.get(speed_key) or 0) > 0
+    ]
+    if quality_speed_rows and not all(
+        (r.get(cost_key) or 0) > 0 for r in quality_speed_rows
+    ):
+        fallback_name = COST_FALLBACKS.get(cost_name)
+        if fallback_name:
+            fallback_key, fallback_label = COST_METRICS[fallback_name]
+            if all((r.get(fallback_key) or 0) > 0 for r in quality_speed_rows):
+                cost_fallback_reason = (
+                    f"{cost_label} is unavailable for one or more candidates; "
+                    f"using {fallback_label} for a comparable frontier"
+                )
+                cost_name = fallback_name
+                cost_key = fallback_key
+                cost_label = fallback_label
+
     if args.tri_review:
-        tr = tri_review_rows([r for r in rows if (r.get("coding") or 0) > 0])
+        if args.tri_review_budget <= 0:
+            ap.error("--tri-review-budget must be greater than zero")
+        tr = tri_review_rows(
+            [r for r in rows if (r.get("coding") or 0) > 0],
+            args.tri_review_budget,
+        )
+        if not tr:
+            ap.error(
+                "--tri-review requires generated report data with TTFT and AA task decode time"
+            )
         if args.json:
             print(json.dumps([
-                {"family": f, "heavy": label(h), "heavy_coding": h["coding"], "heavy_tok_s": h["tok_s"],
-                 "light": label(l), "light_coding": l["coding"], "light_tok_s": l["tok_s"]}
-                for f, h, l in tr], indent=2))
+                {
+                    "family": family,
+                    "normal": label(normal),
+                    "normal_coding": normal["coding"],
+                    "normal_elapsed_seconds": tri_review_elapsed(normal),
+                    "alternate": label(alternate),
+                    "alternate_coding": alternate["coding"],
+                    "alternate_elapsed_seconds": tri_review_elapsed(alternate),
+                    "maximum": label(maximum),
+                    "maximum_coding": maximum["coding"],
+                    "maximum_elapsed_seconds": tri_review_elapsed(maximum),
+                }
+                for family, normal, alternate, maximum in tr
+            ], indent=2))
             return
-        print("\n=== tri-review refresh candidates (heavy = max coding; light = fastest w/ quality floor) ===")
-        for f, h, l in tr:
-            flag = "  ⚠ light==heavy (family has no distinct fast tier)" if label(l) == label(h) else ""
-            print(f"  {f}")
-            print(f"     heavy: {label(h):<26} coding {h['coding']:.1f}  intel {h['intelligence']:.1f}  {h['tok_s']:.0f} tok/s")
-            print(f"     light: {label(l):<26} coding {l['coding']:.1f}  intel {l['intelligence']:.1f}  {l['tok_s']:.0f} tok/s{flag}")
-        print("\nApply judgment for 'pro vs flash' heavy tiers: a fast model can out-score the pro model on")
-        print("coding yet you may still want the pro tier as the heavy reviewer. Update the tri-review table")
-        print("and its 'queried' date accordingly.")
+        print(
+            "\n=== tri-review refresh candidates "
+            f"(normal elapsed budget: {args.tri_review_budget:g}s) ==="
+        )
+        for family, normal, alternate, maximum in tr:
+            print(f"  {family}")
+            print(
+                f"     normal:    {label(normal):<26} "
+                f"coding {normal['coding']:.1f}  intel {normal['intelligence']:.1f}  "
+                f"~{tri_review_elapsed(normal):.0f}s"
+            )
+            print(
+                f"     alternate: {label(alternate):<26} "
+                f"coding {alternate['coding']:.1f}  intel {alternate['intelligence']:.1f}  "
+                f"~{tri_review_elapsed(alternate):.0f}s"
+            )
+            print(
+                f"     maximum:   {label(maximum):<26} "
+                f"coding {maximum['coding']:.1f}  intel {maximum['intelligence']:.1f}  "
+                f"~{tri_review_elapsed(maximum):.0f}s"
+            )
+        print(
+            "\nNormal picks maximize family coding quality within the parallel-review budget. "
+            "With four usable families, omit the active family and use the other three. "
+            "The alternate is only for degraded three-family operation; maximum is reserved "
+            "for an explicitly requested maximum-depth review."
+        )
         return
 
     rows = [
         r
         for r in rows
-        if (r.get(metric) or 0) > 0 and (r.get(speed_key) or 0) > 0
+        if (
+            (r.get(metric) or 0) > 0
+            and (r.get(speed_key) or 0) > 0
+            and (r.get(cost_key) or 0) > 0
+        )
     ]
     if not rows:
         ap.error(
-            f"no rows contain both {quality_label} and {speed_label}; "
+            f"no rows contain {quality_label}, {speed_label}, and {cost_label}; "
             "refresh model_data.json or choose another task/metric"
         )
+    baseline = None
+    if args.strictly_better_than:
+        try:
+            baseline = resolve_baseline(rows, args.strictly_better_than)
+        except ValueError as error:
+            ap.error(str(error))
+        rows = [
+            row
+            for row in rows
+            if row is not baseline
+            and strictly_dominates(
+                row,
+                baseline,
+                metric,
+                speed_key,
+                higher_is_faster,
+                cost_key,
+            )
+        ]
+        if not rows:
+            ap.error(
+                f"no candidate is strictly better than {label(baseline)} on "
+                f"{quality_label}, {speed_label}, and {cost_label}"
+            )
     rows.sort(key=lambda r: -r[metric])
     min_quality = (
         args.min_quality
         if args.min_quality is not None
         else max(r[metric] for r in rows) * quality_floor_ratio
     )
-    front = pareto_front(rows, metric, speed_key, higher_is_faster)
-    pk = picks(rows, front, metric, min_quality, speed_key, higher_is_faster)
+    front = pareto_front(rows, metric, speed_key, higher_is_faster, cost_key)
+    pk = picks(
+        rows,
+        front,
+        metric,
+        min_quality,
+        speed_key,
+        higher_is_faster,
+        cost_key,
+        args.speed_weight,
+        args.cost_weight,
+    )
 
     if args.json:
         print(json.dumps({
@@ -561,30 +958,83 @@ def main() -> None:
             "task_policy_source": "aa-pareto maintained engineering policy",
             "metric": metric_name,
             "speed_metric": speed_name,
+            "cost_metric_requested": requested_cost_name,
+            "cost_metric": cost_name,
             "quality_label": quality_label,
             "speed_label": speed_label,
+            "cost_label": cost_label,
+            "speed_weight": args.speed_weight,
+            "cost_weight": args.cost_weight,
+            "cost_fallback_reason": cost_fallback_reason,
+            "strictly_better_than": label(baseline) if baseline else None,
             "min_quality": min_quality,
             "generated_at": generated_at,
             "rows": rows,
             "pareto_front": [label(r) for r in front],
+            "tradeoff_required": len(front) > 1,
             "picks": {k: label(v) for k, v in pk.items()},
             "attribution": ATTRIBUTION,
         }, indent=2))
         return
 
     print(f"\n=== Task profile: {args.task} ===")
-    print(f"Quality: {quality_label}; efficiency: {speed_label}")
+    print(f"Quality: {quality_label}; speed: {speed_label}; cost: {cost_label}")
+    if baseline:
+        print(f"Strict-dominance baseline: {label(baseline)}")
+    if cost_fallback_reason:
+        print(f"Cost basis fallback: {cost_fallback_reason}")
     print(f"\n=== All candidates (sorted by {quality_label}) ===")
     for r in rows:
-        print("  " + fmt(r, metric, quality_label, speed_key, speed_label))
+        print(
+            "  "
+            + fmt(
+                r,
+                metric,
+                quality_label,
+                speed_key,
+                speed_label,
+                cost_key,
+                cost_label,
+            )
+        )
     direction = "maximize" if higher_is_faster else "minimize"
-    print(f"\n=== Pareto frontier (maximize {quality_label}; {direction} {speed_label}) ===")
+    print(
+        f"\n=== Pareto frontier (maximize {quality_label}; "
+        f"{direction} {speed_label}; minimize {cost_label}) ==="
+    )
     for r in front:
-        print("  " + fmt(r, metric, quality_label, speed_key, speed_label))
+        print(
+            "  "
+            + fmt(
+                r,
+                metric,
+                quality_label,
+                speed_key,
+                speed_label,
+                cost_key,
+                cost_label,
+            )
+        )
     print("\n=== Recommended picks ===")
     print(f"  heavy reasoner   (max quality)          : {label(pk['heavy_reasoner'])}")
-    print(f"  quality-at-speed ({speed_label} knee)   : {label(pk['quality_at_speed'])}")
+    print(
+        "  quality-at-efficiency (speed-priority knee): "
+        f"{label(pk['quality_at_efficiency'])}"
+    )
     print(f"  fast / light     (best {speed_label} >= {min_quality:g} {quality_label}): {label(pk['fast_light'])}")
+    print(
+        f"  cost saver       (lowest {cost_label} >= {min_quality:g} "
+        f"{quality_label}): {label(pk['cost_saver'])}"
+    )
+    if len(front) > 1:
+        print(
+            "\nTrade-off required: multiple candidates are Pareto-efficient. "
+            "For consequential selections, ask whether to prioritize quality, speed, or cost. "
+            f"The knee above weights speed {args.speed_weight:g}x and "
+            f"cost {args.cost_weight:g}x."
+        )
+    else:
+        print("\nOne candidate dominates the measured quality, speed, and cost axes.")
     print("\nNote: AA scores are measured at a specific reasoning effort (see the effort in [AA name]).")
     print("To realize a headline score, set the matching reasoning effort. Speed drops as effort rises.")
     print("\n" + ATTRIBUTION)
