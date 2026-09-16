@@ -12,10 +12,10 @@ Normal tri-review uses an approximately 300-second AA elapsed-time budget per re
 
 | Family | Normal reviewer | Same-family alternate | Maximum-depth reviewer |
 |---|---|---|---|
-| Claude / Anthropic | `claude-opus-5` at `low` — 66.9 coding, 43.8 intelligence, ~172s | No distinct model within budget; reuse the normal reviewer | `claude-opus-5` at `max` — 78.0 coding, 54.1 intelligence, ~896s |
+| Claude / Anthropic | `claude-opus-5` at `low` — 66.9 coding, 43.8 intelligence, ~172s | No distinct model within budget; use the two-reviewer fallback | `claude-opus-5` at `max` — 78.0 coding, 54.1 intelligence, ~896s |
 | GPT / OpenAI | `gpt-5.6-sol` at `high` — 77.2 coding, 48.3 intelligence, ~204s | `gpt-6-astra` at `high` — 77.1 coding, 53.4 intelligence, ~227s | `gpt-5.6-sol` at `xhigh` — 78.3 coding, 49.8 intelligence, ~309s |
 | Gemini / Google | `gemini-3.8-flash` at `high` — 76.3 coding, 47.1 intelligence, ~244s | `gemini-3.7-flash` at `high` — 76.1 coding, 45.2 intelligence, ~189s | `gemini-3.8-flash` at `high` — 76.3 coding, 47.1 intelligence, ~244s |
-| Grok / xAI | `grok-4.6` at `low` — 66.3 coding, 41.6 intelligence, ~183s | No distinct model within budget; reuse the normal reviewer | `grok-4.6` at `high` — 76.8 coding, 50.6 intelligence, ~672s |
+| Grok / xAI | `grok-4.6` at `low` — 66.3 coding, 41.6 intelligence, ~183s | No distinct model within budget; use the two-reviewer fallback | `grok-4.6` at `high` — 76.8 coding, 50.6 intelligence, ~672s |
 
 Rules:
 

@@ -528,13 +528,14 @@ def tri_review_elapsed(row: dict) -> float:
 def tri_review_rows(
     rows: list[dict],
     budget_seconds: float,
-) -> list[tuple[str, dict, dict, dict]]:
+) -> list[tuple[str, dict, dict | None, dict]]:
     """Select normal, same-family alternate, and maximum-depth reviewers per family.
 
     Normal review maximizes coding quality within a wall-clock budget because three reviewers run
     in parallel and the slowest reviewer determines completion time. The alternate prefers a
-    different model ID within the same budget; when none exists, it uses another effort of the
-    normal model. Maximum depth remains the family's maximum coding score.
+    different model ID within the same budget, then another effort of the normal model. When no
+    distinct row fits, the alternate is unavailable. Maximum depth remains the family's maximum
+    coding score.
     """
     out = []
     for fam_label, key in TRI_REVIEW_FAMILIES:
@@ -575,17 +576,55 @@ def tri_review_rows(
         ]
         alternate_pool = distinct_model or [
             r for r in within_budget if r is not normal
-        ] or [normal]
-        alternate = max(
-            alternate_pool,
-            key=lambda r: (
-                r["coding"],
-                r["intelligence"],
-                -tri_review_elapsed(r),
-            ),
+        ]
+        alternate = (
+            max(
+                alternate_pool,
+                key=lambda r: (
+                    r["coding"],
+                    r["intelligence"],
+                    -tri_review_elapsed(r),
+                ),
+            )
+            if alternate_pool
+            else None
         )
         out.append((fam_label, normal, alternate, maximum))
     return out
+
+
+def tri_review_budget_error(
+    rows: list[dict],
+    recommendations: list[tuple[str, dict, dict | None, dict]],
+    budget_seconds: float,
+) -> str | None:
+    if len(recommendations) >= 3:
+        return None
+
+    timed_families = [
+        family
+        for family, key in TRI_REVIEW_FAMILIES
+        if any(
+            key in (row.get("copilot_id") or "").lower()
+            and (row.get("coding") or 0) > 0
+            and tri_review_elapsed(row) > 0
+            for row in rows
+        )
+    ]
+    if not timed_families:
+        return (
+            "--tri-review requires generated report data with TTFT and "
+            "AA task decode time"
+        )
+
+    selected_families = {family for family, _, _, _ in recommendations}
+    skipped = [family for family in timed_families if family not in selected_families]
+    skipped_text = ", ".join(skipped) if skipped else "none"
+    return (
+        f"--tri-review found only {len(recommendations)} model families within "
+        f"{budget_seconds:g}s; at least 3 are required. "
+        f"No qualifying candidate: {skipped_text}"
+    )
 
 
 def resolve_axes(
@@ -890,14 +929,20 @@ def main() -> None:
     if args.tri_review:
         if args.tri_review_budget <= 0:
             ap.error("--tri-review-budget must be greater than zero")
+        tri_review_source_rows = [
+            r for r in rows if (r.get("coding") or 0) > 0
+        ]
         tr = tri_review_rows(
-            [r for r in rows if (r.get("coding") or 0) > 0],
+            tri_review_source_rows,
             args.tri_review_budget,
         )
-        if not tr:
-            ap.error(
-                "--tri-review requires generated report data with TTFT and AA task decode time"
-            )
+        budget_error = tri_review_budget_error(
+            tri_review_source_rows,
+            tr,
+            args.tri_review_budget,
+        )
+        if budget_error:
+            ap.error(budget_error)
         if args.json:
             print(json.dumps([
                 {
@@ -905,9 +950,11 @@ def main() -> None:
                     "normal": label(normal),
                     "normal_coding": normal["coding"],
                     "normal_elapsed_seconds": tri_review_elapsed(normal),
-                    "alternate": label(alternate),
-                    "alternate_coding": alternate["coding"],
-                    "alternate_elapsed_seconds": tri_review_elapsed(alternate),
+                    "alternate": label(alternate) if alternate else None,
+                    "alternate_coding": alternate["coding"] if alternate else None,
+                    "alternate_elapsed_seconds": (
+                        tri_review_elapsed(alternate) if alternate else None
+                    ),
                     "maximum": label(maximum),
                     "maximum_coding": maximum["coding"],
                     "maximum_elapsed_seconds": tri_review_elapsed(maximum),
@@ -926,11 +973,15 @@ def main() -> None:
                 f"coding {normal['coding']:.1f}  intel {normal['intelligence']:.1f}  "
                 f"~{tri_review_elapsed(normal):.0f}s"
             )
-            print(
-                f"     alternate: {label(alternate):<26} "
-                f"coding {alternate['coding']:.1f}  intel {alternate['intelligence']:.1f}  "
-                f"~{tri_review_elapsed(alternate):.0f}s"
-            )
+            if alternate:
+                print(
+                    f"     alternate: {label(alternate):<26} "
+                    f"coding {alternate['coding']:.1f}  "
+                    f"intel {alternate['intelligence']:.1f}  "
+                    f"~{tri_review_elapsed(alternate):.0f}s"
+                )
+            else:
+                print("     alternate: none within budget")
             print(
                 f"     maximum:   {label(maximum):<26} "
                 f"coding {maximum['coding']:.1f}  intel {maximum['intelligence']:.1f}  "
@@ -938,9 +989,11 @@ def main() -> None:
             )
         print(
             "\nNormal picks maximize family coding quality within the parallel-review budget. "
-            "With four usable families, omit the active family and use the other three. "
-            "The alternate is only for degraded three-family operation; maximum is reserved "
-            "for an explicitly requested maximum-depth review."
+            f"{len(tr)} model families fit the budget. With four usable families, omit the "
+            "active family and use the other three. An alternate is only for degraded "
+            "three-family operation; if none is available, use the existing two-reviewer "
+            "fallback rather than duplicating a reviewer. Maximum is reserved for an "
+            "explicitly requested maximum-depth review."
         )
         return
 

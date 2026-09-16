@@ -377,8 +377,7 @@ class TriReviewRowsTests(unittest.TestCase):
 
         _, normal, alternate, maximum = recommendations[0]
         self.assertLessEqual(aa_pareto.tri_review_elapsed(normal), 300.0)
-        self.assertLessEqual(aa_pareto.tri_review_elapsed(alternate), 300.0)
-        self.assertEqual(normal, alternate)
+        self.assertIsNone(alternate)
         self.assertGreater(aa_pareto.tri_review_elapsed(maximum), 300.0)
 
     def test_omits_family_without_a_budget_eligible_model(self) -> None:
@@ -387,6 +386,45 @@ class TriReviewRowsTests(unittest.TestCase):
         recommendations = aa_pareto.tri_review_rows(rows, budget_seconds=300.0)
 
         self.assertEqual([], recommendations)
+
+    def test_reports_insufficient_budget_without_claiming_missing_data(self) -> None:
+        rows = [
+            self.row("gpt-5.6-sol", 78.0, 150.0),
+            self.row("grok-4.6", 76.0, 600.0),
+        ]
+        recommendations = aa_pareto.tri_review_rows(
+            rows,
+            budget_seconds=300.0,
+        )
+
+        error = aa_pareto.tri_review_budget_error(
+            rows,
+            recommendations,
+            budget_seconds=300.0,
+        )
+
+        self.assertIn("only 1 model families", error)
+        self.assertIn("Grok / xAI", error)
+        self.assertNotIn("requires generated report data", error)
+
+    def test_reports_missing_timing_data(self) -> None:
+        rows = [
+            {
+                "copilot_id": "gpt-5.6-sol",
+                "coding": 78.0,
+                "intelligence": 50.0,
+                "ttft": 0,
+                "task_time": 0,
+            }
+        ]
+
+        error = aa_pareto.tri_review_budget_error(
+            rows,
+            [],
+            budget_seconds=300.0,
+        )
+
+        self.assertIn("requires generated report data", error)
 
 
 class AxisResolutionTests(unittest.TestCase):
