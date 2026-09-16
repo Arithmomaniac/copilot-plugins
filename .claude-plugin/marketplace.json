@@ -146,7 +146,7 @@
             "description": "Audit installed skills for activation and execution effectiveness using recent session history. Detect missed, late, false-positive, or unused invocations, workflow-contract violations, user-corrected gaps, and churn/retry tax. Use for 'audit skills', 'evaluate skills', 'skill health check', or 'are my skills working'.",
             "source": "./",
             "strict": false,
-            "version": "1.0.3",
+            "version": "1.0.4",
             "category": "developer-tools",
             "keywords": [
                 "audit",
